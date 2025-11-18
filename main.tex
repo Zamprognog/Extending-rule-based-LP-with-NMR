@@ -1,0 +1,661 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{amssymb} 
+\usepackage{url}
+\usepackage{appendix}
+\usepackage{doi}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\title{Extending rule based LP with NMR}
+\author{Giacomo Zamprogno, ... ,... ,... }
+\date{July 2025}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+    Knowledge Graphs (KGs) are widely used relational data structures that allow both human and machine readability, but are inherently incomplete. Recent studies have explored the benefits of mining and applying inference rules to suggest new relations among existing entities to extend a KG, a task known as Link Prediction (LP). While rules have the advantage of transparency compared to black-box machine learning methods, it has been noted how the commonly used Horn Rules suffer from a lack of expressivity. Additionally, even if available, semantic information of KGs is rarely leveraged, as mining algorithms usually focus only entity-level triples. This is also reflected on standard LP metrixs
+
+    In this work, we study the effect
+\end{abstract}
+\section{Introduction}
+
+In recent years, Knowledge Graphs (KGs) \cite{hogan_knowledge_2022} have attracted interest due to their dual nature of being inherently readable both from humans and machine, allowing both to encode expert knowledge and being easily processed algorithmically. Their usage stem from industrial applications \cite{} to shareable scientific repositories \cite{}, and, with the recent rise of Large Language Models, they have gathered further interest as means to ground the generation process with reliable facts \cite{}.
+
+
+Nonetheless, KGs are often incomplete, meaning that they do not (and often cannot) capture all the facts relevant to their domain fields: they can miss information about individuals, or relations that connect them. 
+This incompleteness often stems from the fact that KGs are automatically generated from data or compiled by experts, but it might also be due to new facts not being known. KG incompleteness hence implies that methods able to suggest missing facts might even `discover' new knowledge \cite{}. The task of KG Completion, and specifically of Link Prediction (LP), aims at predicting missing links (edges) that are likely to be true in the context of the KG.
+
+Among the techniques used for LP, Rule Mining (RM) \cite{meilicke_anytime_2024, harth_fast_2020} has found a renewed interest for being both more easily human-readable compared to subsymbolic methods like KG embeddings \cite{} and Graph Neural Networks \cite{}, while at the same time showcasing competitive performances. Most RM methods involve finding and extracting patterns in the data, which usually take the shape of closed paths connecting pairs of entities. Nonetheless, despite being closer to symbolic methods, RM algorithms often fail to consider, and exploit, the semantic information that comes with the KG, focusing instead on frequent patterns.
+
+For example, given the rule $parent(X, Y), bornIn(X,C) \rightarrow bornIn(Y,C)$, it is likely to hold a sufficient degree of success. In the default RM application, given a (s, bornIn, ?) query, the rule will be applied for any available matching body, is certain to introduce inconsistencies if paired with the the possibility of parents coming from different cities while including information about the functionality of `bornIn' would at least highlight a possible issue.
+
+This is only partially captured by standard LP metrics, which are computed from a ranking of predictions given a `silver-standard' test set \cite{}, but it is likely to reduce the applicability of LP solutions in the practical case: while inconsistent triples from the same rule might have a limited effect on ranking, once materialized they would require further operation to repair the knowledge base \cite{}.
+
+Some previous work suggested the potential of extending RM systems with rule exceptions, taking a non-monotonic approach \cite{gad-elrab_exception-enriched_2016,tran_towards_2017,lisi_combining_nodate}. In this work, we study the effect of extending a set of mined rules with semantic-aware baseline exception conditions: given the set of semantic restrictions defined in KG-related ontologies, we use them to stop the activation of rules when they would result in a trivial violation of such restrictions. 
+
+We then compare the original and extended set of rules on both predictive performance and semantic validity, to explore the trade-off derived by stopping violations trivially caused by rules: while blocking potentially inconsistency-generating rules should increase semantic validity, it will also predict a lower number of triples, which might affect the performance of the model under standard rank-based link prediction metrics.
+
+\subsection{Basic definitions}
+Our input is defined as a tuple $(\mathcal{G},\mathcal{O},\mathcal{IR})$ where:
+\begin{itemize}
+    \item $\mathcal{G}$ is a knowledge graph: $$\mathcal{G} = (\mathcal{E}, \mathcal{R}, \mathcal{T})$$ where $\mathcal{E}$ is the (finite) set of entities (nodes), $\mathcal{R}$ is the (finite) set of relation (edge) types , and $\mathcal{T} \subseteq \mathcal{E} \times \mathcal{R} \times \mathcal{E}$ is the set of known triples (edges).
+    \item $\mathcal{O}$ is a set of ontological restrictions. 
+    % \item $\mathcal{IR}$ is a set of inference rule of the type $(s_0, r_0, o_0) \land ... \land(s_i,r_j,o_k) \rightarrow (s_x,r_y,o_z)$ with $0\le x \le i$ and $0\le z \le k$\footnote{Two further }
+    \item $\mathcal{IR}$ is a set of inference rules of the type $$\bigwedge_{i=0}^{n} (S_i, b_i, O_i) \rightarrow (X, h , Y)$$ where $X,Y \in \{S_i\}\cap{\{O_i\}}$, $b_i,h \in \mathcal{R}$ and $S_i,O_i$ are intended as variables to be grounded with elements of $\mathcal{E}$ such that given a variable substitution $\theta$, $(S_i, b_i, O_i)_{/\theta} \in \mathcal{G}$. 
+    
+    In the specific scenario we consider, the substiuution requires each variable to get a distinct grounding, i.e. $S_{i/\theta} \not= S_{j/\theta}\quad\forall \quad i \not=j$ and $S_{i/\theta} \not=O_{j/\theta}\quad if\quad S_i \not=O_j$.
+
+    IR can be also seen as \textit{Horn rules}, i.e. of the type $B \rightarrow H$, where $B$ is a conjunction of atoms and $H$ is a single atom. In this work, we consider atoms as being \textit{triple patterns} of the type $(V1,p,V2)$, where the relation is known, while subject and objects are variables.
+\end{itemize}
+
+% $$\bigwedge_{i=1}^{n} (S_{i}, b_i, O_i) \rightarrow (S_x, h , O_y); x,y \le n$$
+
+
+
+
+\subsection{Rule mining}
+Important definitions:
+\begin{itemize}
+    \item Closed rule (CR): is a rule where every atom appear
+    % $$\bigwedge_{i=1}^{n} (A_{i-1}, b_i, A_i) \rightarrow (A_0, h , A_n)$$ a common type of rule, \textit{relatively easy} to mine as it involves looking at closed paths within the graph. 
+    \item Valid grounding: a variable substitution $\theta$ s.t. given a triple pattern tp: $(V1, p, V2)$, $$tp_{/\theta}: (v1, p, v2) \in \mathcal{G}$$
+    \item Body(head) grounding: a variable substitution s.t. all triples in the body(head) are validly grounded
+    \item Support (given a rule r): number of head groundings already in $\mathcal{G}$
+    \item Standard confidence (given a rule r): number of body groundings for which head is also grounded
+\end{itemize}
+\subsection{Link prediction}\label{sec:LP}
+$\mathcal{IR}$ can be evaluated from a Link Prediction (LP) perspective. LP aims at predicting missing links in the graph. More precisely, the goal is to infer plausible triples $(s, r, o)$ that are not present in $\mathcal{T}$ but are likely to hold.
+
+LP is usually tested via the \textit{silver-standard} method: a set of triples from the original graph is removed, and the LP methods are tasked to rank each removed triple with respect of its possible corruptions (random substitutions of its components), where ideally the test triple is ranked among the most likely ones. 
+In the context of RM, most rule-sets $\mathcal{IR}$ assign a \textit{confidence} value to each rule. So, given a test triple $(s,r,o)$, one can query all rules that allow to infer $(s,r,?)$, ranking the predicted $(s,r,o')$ by an aggregation of the confidence scores of the rules which can correctly predict each triple. The same can be done for $(?,r,o)$ ranking predicted $(s',r,o)$.
+
+\subsection{Consistency and violations}
+
+In general, a KG is consistent if $\mathcal{G} \cup \mathcal{O} \not\models \bot$. 
+
+Assuming a consistent KG as an input, given a set of inference rules $IR$, it might still be the case that $\mathcal{G}^{IR} \cup \mathcal{O} \not\models \bot$. We define three ways in which rules can lead into inconsistencies:
+
+\begin{itemize}
+    \item \textit{in-graph violation}: in graph violations are inconsistencies derived by data already present in the graph when a rule conclusion is materialized.
+    \item \textit{in-rule violation} : we define  in-rule violations as inconsistencies caused by one or more conclusions materialized from a given rule \textit{r}. 
+    \item \textit{out-rule violation}: comparatively, out-rule violations are inconsistencies caused by one or more valid conclusions materialized from different rules.
+\end{itemize}
+
+Examples with the functional restriction:
+\begin{itemize}
+    \item \textit{in-graph violation} : a given (s,p,o) conclusion would violate information already in the graph:  $(X,parent,Y), (X,bornIn,C) \rightarrow (Y, bornIn, C) $ might derive that a person \textit{persony} is born the same city \textit{cityp} of their parents, even if the graph already contains $(persony, bornIn, city2)$ triple.
+    \item \textit{in-rule violation}: the same rule for the same (s,p,?) query might get 2 different conclusions: $(X,parent,Y), (X,bornIn,C) \rightarrow (Y, bornIn, C) $, in case of parents being born in different cities, two head triples will be derived, which will generate an inconsistency.
+    \item \textit{out-rule violation}: two different rules can trigger for the same query (s,p,?): 
+    $(X,parent,Y), (X,bornIn,C) \rightarrow (Y, bornIn, C) $ and $(Y,livesIn,C) \rightarrow (Y, bornIn , C)$. As the bodies are unrelated, this means they could trigger, resulting in different predictions.
+\end{itemize} 
+
+\section{Problem definition}
+
+We focus on the effect of removing in-rule violations by extending the original $\mathcal{IR}$ non-monotonically, by defining exception patterns that would trivially result in inconsistencies.
+
+\subsection{Research question}
+
+We investigate the following research question:
+
+% \textit{\textbf{RQ0:} How do post-hoc extensions of rule sets aimed at reducing in-rule violations influence link prediction?}
+
+\textit{\textbf{RQ:} Is a `baseline' non-monotonic repair of in-rule and in-graph conflict sufficient to avoid inconsistencies in predicted triples, and what is the trade-off on LP and computational performance?}
+
+
+\section{Approach}
+
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|l|l|}
+\hline
+\textbf{Property} & \textbf{Condition for exception} \\
+\hline
+Functional(h)  & $\theta,\theta':A_{x/\theta} =A_{x/\theta'},A_{y/\theta} \neq A_{y/\theta'}, head(r)_{\theta'} \in \mathcal{G} \lor body(r)_{\theta'} \in \mathcal{G}$ \\
+\hline
+Inverse Functional(h)  & $\theta,\theta':A_{x/\theta} \neq A_{x/\theta'},A_{y/\theta} = A_{y/\theta'}, head(r)_{\theta'} \in \mathcal{G} \lor body(r)_{\theta'} \in \mathcal{G}$ \\
+\hline
+Domain(h) & $\theta: type(A_{x/\theta}) \sqcap domain(h) \sqsubseteq \bot$ \\
+\hline
+Range(h) & $\theta: type(A_{y/\theta}) \sqcap range(h) \sqsubseteq \bot$  \\
+\hline
+% Symmetric(h) & $\theta,\theta':A_{0/\theta} =A_{n/\theta'},A_{n/\theta} = A_{0/\theta'}, head(r)_{\theta'}  \not\in \mathcal{G}$ \\
+% \hline
+% Anti Symmetric(h) & $\theta,\theta':A_{0/\theta} =A_{n/\theta'},A_{n/\theta} = A_{0/\theta'}, head(r)_{\theta'}  \in \mathcal{G}$ \\
+% \hline
+% Symmetric(h) & $\theta,\theta':A_{0/\theta} =A_{n/\theta'},A_{n/\theta} = A_{0/\theta'}, head(r)_{\theta'}  \not\in \mathcal{G} \land body(r)_{\theta'} \not\in \mathcal{G}$ \\
+% \hline
+% Anti Symmetric(h) & $\theta,\theta':A_{0/\theta} =A_{n/\theta'},A_{n/\theta} = A_{0/\theta'}, head(r)_{\theta'}  \in \mathcal{G} \lor
+% body(r)_{\theta'} \in \mathcal{G}$ \\
+% \hline
+% Reflexive(h) & cannot be predicted in the framework \\
+% \hline
+% Irreflexive(h) & cannot be predicted in the framework \\
+% \hline
+% Dom(h), Dom(h') & $\exists\theta: body(r)_{/\theta}, body(r')_{/\theta}\in \mathcal{G}; dom(h)\sqcap dom(h') \sqsubseteq \bot$&  \\
+% \hline
+\end{tabular}
+    \caption{Potential violations  $r: body(r) \rightarrow head(r), head(r) =(A_x, h, A_y)$ assuming a valid substitution $\theta$ for r, in C.W.A. Reflexivity not included as rule grounding (in RM) requires different subsitutions for different variables. In practice, inverse functionality is treated but not encountered.}
+    \label{tab:ijp}
+\end{table}
+% \textcolor{red}{Note: by the updated definition of in-rule violations, we do not need to check if there exists alternate body groundings for symmetric and asymmetric properties: we always `fix' the path-starting variable, and define in-rule exceptions as two paths starting from there with incompatible conclusions. Given this, the same rule will not be able to predict `wrong' (a)symmetric triples, as all possible conclusions will have the starting variable in the same position (either subject or object) and thus it is sufficient to check for in-graph violations.}
+\subsection{Building baseline exceptions}
+
+Given $\{\mathcal{IR,O}\}$ we generate $\mathcal{IR}^{nm}$, a non-monotonic extensions of the rule set, where the exceptions are sufficient conditions for in-rule violations. Table \ref{tab:ijp} collects the list of inconsistency patterns adapted by \cite{wiharja_schema_2020, wang_schema-aware_nodate} given the set of property restrictions we focus on. For this study, we focus on four types of ontological restrictions: functionality, inverse functionality, domain and range restrictions. \textcolor{red}{But I still haven't found a dataset that has inverse functional restrictions so this will likely be three}
+
+\subsection{Applying the exceptions}
+When materializing $\mathcal{G}^{IR^{nm}}$, for each rule \textit{r}:
+\begin{itemize}
+    \item If $\exists \theta: body(r)_{/\theta} \in \mathcal{G}$ ,  $head(r)_{/\theta} \not\in \mathcal{G}$ and $\mathcal{G} \cup \mathcal{O} \not\models exception(r)_{/\theta}$, the rule triggers and $head(r)_{/\theta}$ is added to $\mathcal{G}^{IR^{nm}}$.
+    \item Otherwise, the specific rule activation is skipped.
+\end{itemize}
+
+We implement this with a depth-first search approach similar to \cite{meilicke_anytime_2024}, and in a similar way, we require different variables to have different groundings. 
+
+\subsection{Evaluation metrics}
+
+\subsubsection{Semantic consistency metrics}
+We are interested in evaluating the quality of the materialized (predicted) triples from a semantic perspective.
+
+\begin{itemize}
+    \item Inconsistency of materialized graph (mat-inc): given the graphs $\mathcal{G}^{IR^{nm}}$ and $\mathcal{G}^{IR}$, obtained by materializing the top N most confident rules (or all the rules above a confidence threshold), and given $\mathcal{O}$, a DL-lite ontology\cite{artale_dl-lite_2009}, we compute the number of triples whose addition to the graph causes constraint violations for the restrictions defined in $\mathcal{O}$.
+
+    \item SEM@k, proposed by \cite{hubert_treat_2024}, checks the number of semantically correct triples within the first k ranked predictions. Originally only defined over domain and range, we extended it to include the considered restrictions.
+    
+    Given a test triple $t:(s,p,o)$, and the first N quality-ranked predictions for $(s,p,?)$ and $(?,p,o)$, SEM@10 is the ratio of semantically correct predictions.
+    
+    \textcolor{red}{There is an argument to be made for adapting this to first materialize the top N prediction and then count how many of them are in a `justification' for inconsistencies, otherwise this is much weaker for functionality}
+
+\end{itemize}
+
+\subsubsection{Standard LP metrics}
+LP metrics are usually \textit{ranking metrics}. Given a set of test triples, i.e. positive triples that we know are in the KG but have not been seen by the model, for each belonging test triple $t_i$
+we compute its ranking relative to all possible corruption of its subject and/or object (usually excluding corruption that would be part of the training set, this is called \textit{filtered} condition).
+
+\begin{itemize}
+    \item  Hits@k: 
+    \[
+    \text{Hits@}k = \frac{1}{N} \sum_{i=1}^{N} \mathbb{I} \left[ \text{rank}_i \leq k \right]
+    \]
+    Where $\mathbb{I}[\cdot]$ equals 1 if condition is true, 0 otherwise.
+    \item Mean Reciprocal Rank (MRR): 
+
+    \[
+    \text{MRR} = \frac{1}{N} \sum_{i=1}^{N} \frac{1}{\text{rank}_i}
+    \]
+\end{itemize}
+
+
+
+Given that the KGs we analyze are formalized using a DL-lite language (NELL is $DL-Lite_{core}^{(HF)}$, YAGO4.5 is $OWL-DL$\footnote{This can be approximated to DL-Lite accoring to \cite{pan_approximating_nodate}}) inconsistencies checks can be rewritten as (SPARQL) queries\cite{calvanese_tractable_2007}. Appendix \ref{app:incons} collects the queries we define.
+
+In general, these metrics are designed to quantify the efficacy of avoiding in-graph and in-rule violations. As out-rule violations are not considered, it inconsistencies from the aforementioned restriction can still be present even in the extended rule-sets. 
+\textcolor{red}{}
+
+\section{Empirical experiments} \label{sec:exp}
+Running a KG completion on 2 KGs that contain schemas: NELL995 \cite{xiong_deeppath_2017} (at least the original version, it's not available atm) and a fraction of YAGO4.5\cite{suchanek_yago_2024}, targeted to Link Prediction, following a similar approach to the YAGO3.10\cite{} benchmark.
+\begin{itemize}
+    \item  AnyBurl only Closed Path rules
+    % \item AnyBurl FULL (includes partially acyclic rules) 
+    \item AnyBurl CP with baseline exceptions
+    \item AMIE \textcolor{red}{rule length limited due to computation cost, will let run overnight}
+    \item AMIE with baseline exceptions
+\end{itemize}
+
+\begin{table}[]
+    \centering
+    \begin{tabular}{l|c|c|c|c}
+         name & graph size (triples) & t-box axioms & train size & test size   \\
+         \hline
+         NELL995 & $\sim500k$& & 114k & 14.2k \\
+         Hetionet & $\sim2,275M$ & & 2.21M & 22.5k\\
+         YAGO4.5-10 & $\sim3.997M $& & 3.22M & 16.2k \\
+         % WD18K & & \\
+         % YAGO3-10 & & \\
+    \end{tabular}
+    \caption{Analyzed datasets}
+    \label{tab:datasets}
+\end{table}
+
+% YAGO4.5 has 15M triples, much like the decision in wikidata5M, we limit the validation (not used, but available) and test size to a few thousands for practical matters(to expand)
+\subsection{Results}
+
+% \begin{table}[]
+%     \centering
+%     \begin{tabular}{l|c|c|c|c|c|c}
+%          Model & hits@1 & hits@10 & mrr & sem@10 & new triples& \#inc (f + dr) \\
+%          \hline
+%           AnyBURL & 0.1963 & 0.3506 & 0.2517 & 0.983 & 14.9k & 2370 + 2982\\
+%          AnyBURL + nmr & 0.1971 & 0.3447 & 0.2450 & 1.0 & 17.2k & 1245 + 1418 \\
+%          AMIE & 0.1507 & 0.2377 & 0.1820 & 0.9835 & 14.8k & 29 + 8510\\
+%          AMIE + nmr & 0.1510 & 0.2353 & 0.1814 & 1.0 & 15.5k & 3 + 1198\\
+         
+%     \end{tabular}
+%     \caption{Model metrics for NELL995}
+%     \label{tab:nell_results}
+% \end{table}
+
+% \begin{table}[]
+%     \centering
+%     \begin{tabular}{l|c|c|c|c|c|c}
+%          Model & hits@1 & hits@10 & mrr & sem@10 & new triples& \#inc (f + dr) \\
+%          \hline
+%          AnyBURL & 0.0110 & 0.0582 & 0.0290 & 0.9990 & 565k & 0 + 0  \\
+%          AnyBURL + nmr & 0.0106 & 0.0573 & 0.0283 & 1.0 &565k& 0 + 0  \\
+%          AMIE & 0.0160 & 0.0696 & 0.0346 & 0.9578 & 663k &  0+ 26220 \\
+%          AMIE + nmr & 0.0164 & 0.0690 & 0.0346 & 1.0 & 637k & 0+ 0 \\ 
+         
+%     \end{tabular}
+%     \caption{Model metrics for hetionet}
+%     \label{tab:nell_results}
+% \end{table}
+
+%%%%%%%%%%%%%%%%
+
+
+
+
+\begin{table}[t]
+\centering
+
+\label{tab:metrics_part2}
+\begin{tabular}{l | c c c c c c}
+\toprule
+\multicolumn{7}{c}{NELL995} \\
+\midrule
+Ruleset & \# triggered rules & new triples & functional  & domain & range & time \\
+\midrule
+AnyBURL & 252 & 14.2k & 1.49k & 162 & 321 & 143s \\
+AnyBURL + nmr & 269 & 14.8k & 679 & 0 & 0 & 174s \\
+AMIE & 11 & 14.8k & 48 & 3029 & 7621 & 37s \\
+AMIE + nmr & 36 & 14.6k & 6 & 0 & 0 & 42s \\
+\midrule
+\multicolumn{7}{c}{Hetionet} \\
+\midrule
+Ruleset & \# triggered rules & new triples & functional  & domain & range & time \\
+\midrule
+AnyBURL & 2 & 565k & 0* & 0 & 0 & 143s \\
+AnyBURL + nmr & 2 & 565k & 0* & 0 & 0 & 174s \\
+AMIE & 2 & 663k & 0* & 26.2k & 0 & 36s \\
+AMIE + nmr & 2 & 637k & 0* & 0 & 0 & 42s \\
+\midrule
+\multicolumn{7}{c}{YAGO4.5} \\
+\midrule
+Ruleset & \# triggered rules & new triples & functional  & domain & range & time \\
+\midrule
+AnyBURL & 94 & 342k & 41.2k & 2.02k & 0 & 659s \\
+AnyBURL + nmr & 80 & 329k & 4 & \textbf{0} & \textbf{0} & 501s \\
+AMIE & 35 & 614k & 1.42k & 103 & 0 & 167s \\
+AMIE + nmr & 30 & 609k & 2 & \textbf{0} & \textbf{0} & 149s \\
+
+\bottomrule
+\end{tabular}
+\caption{Materialization metrics for the datasets and rulesets, stopping after the last rule which brings the number of new triples above the threshold of 10\%. `Functional', `domain' and `range' refer to the number of inconsistent triples among the materialized ones. For Hetionet, not functional restriction is defined, thus no violations.}
+
+\end{table}
+
+
+%%%%%%%%%%%% 30% %%%%%%%%%%%%%%
+
+\begin{table}[t]
+\centering
+
+\label{tab:metrics_part2}
+\begin{tabular}{l | c c c c c c}
+\toprule
+\multicolumn{7}{c}{NELL995} \\
+\midrule
+Ruleset & \# triggered rules & new triples & functional  & domain & range & time \\
+\midrule
+AnyBURL & 713 & 42.8 & 14.4k & 647 & 580 & 270s \\
+AnyBURL + nmr & 1025 & 43.2k & 1978 & 0  & 0 & 2249s \\
+AMIE & 51 & 42.7k & 89 & 11.4k & 11.9k & 16s \\
+AMIE + nmr & 84 & 42.7 & 6 & 0 & 0 & 65s \\
+\midrule
+\multicolumn{7}{c}{Hetionet} \\
+\midrule
+Ruleset & \# triggered rules & new triples & functional  & domain & range & time \\
+\midrule
+AnyBURL & 4 & 1.16M & 0* & 0 & 0 & 1712s \\
+AnyBURL + nmr & 4 & 1.15M & 0* & 0 & 0 & 2658s \\
+AMIE & 3 & 920k & 0* & 26.2k & 0 & 74s \\
+AMIE + nmr & 3 & 894k & 0* & 0 & 0 & 95s \\
+\midrule
+\multicolumn{7}{c}{YAGO4.5} \\
+\midrule
+Ruleset & \# triggered rules & new triples & functional  & domain & range & time \\
+\midrule
+AnyBURL & 275 & 1.18M & 354k & 11.2k & 0 & 10037s \\
+AnyBURL + nmr & 223 & 1.83M & 24 & 0 & 0  & 12895s \\
+AMIE & 48 & 1.24M & 1.42k & 13.4k & 0 & 1172 \\
+AMIE + nmr & 43 & 1.17M & 2 & 0 & 0 & 2142s \\
+\bottomrule
+\end{tabular}
+\caption{Materialization metrics for the datasets and rulesets, stopping after the last rule which brings the number of new triples above the threshold of 30\%. `Functional', `domain' and `range' refer to the number of inconsistent triples among the materialized ones. For Hetionet, not functional restriction is defined, thus no violations.}
+
+\end{table}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\begin{table}[t]
+\centering
+\caption{Standard LP metrics.}
+\label{tab:metrics_part1}
+\begin{tabular}{l | c c c c}
+\toprule
+\multicolumn{4}{c}{NELL995} \\
+\midrule
+Ruleset & hits@1 & hits@10 & mrr & sem@10 \\
+\midrule
+AnyBURL & 0.1963 & 0.3506 & 0.2517 & 0.983  \\
+AnyBURL + nmr & 0.1971 & 0.3447 & 0.2450 & 1.0 \\
+AMIE & 0.1507 & 0.2377 & 0.1820 & 0.9835  \\
+AMIE + nmr & 0.1510 & 0.2353 & 0.1814 & 1.0\\
+\midrule
+\multicolumn{4}{c}{Hetionet} \\
+\midrule
+Ruleset & hits@1 & hits@10 & mrr & sem@10 \\
+\midrule
+AnyBURL & 0.0110 & 0.0582 & 0.0290 & 0.9990 \\
+AnyBURL + nmr & 0.0106 & 0.0573 & 0.0283 & 1.0 \\
+AMIE & 0.0160 & 0.0696 & 0.0346 & 0.9578 \\
+AMIE + nmr & 0.0164 & 0.0690 & 0.0346 & 1.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Discussion}
+\begin{itemize}
+    \item Difference in LP performance not significant for hetio and nell
+    \item Hetionet: the tbox is very simple, so it makes sense that blocking the rules removes all the inconsistencies. Only 2 very general rules are triggered producing a large number of triples, thus results are not too interesting
+\end{itemize}
+\section{Related Work}
+
+Link prediction is a widespread topic and has been tackled with multiple approaches, most notably KG embeddings (KGE) \cite{}, Graph Neural Networks\cite{} and Rule Mining. In this work we focused on the latter: in section \ref{sec:exp} we generated rule sets using AnyBURL\cite{meilicke_anytime_2024} and AMIE3\cite{harth_fast_2020}, which respectively employ path sampling (bottom-up) and systematic generation and testing (top-down) with pruning heuristics. 
+
+Other rule miners have been proposed: \cite{pirro_relatedness_2020} uses a t-box based approach to suggest rule candidates, and SAFRAN\cite{ott_safran_2021} is an extension of AnyBurl using noisy-or: the confidence of a predicted triple is an aggregation of the confidence of all triggered relevant rules, once redundant rules are removed. We currently do not use noisy or, as it would require exploring the interplay between redundancy and rules exceptions, but we intend to apply this in the future. 
+
+Non-monotonic extensions of rule-sets have also been proposed in the previous years: a series of studies \cite{gad-elrab_exception-enriched_2016,tran_towards_2017, lisi_combining_nodate} explores learning exceptions via a inductive logic programming approach, while we aim at exploiting ontological information. 
+
+Finally, using t-box or ontological knowledge to improve link prediction has been the subject of study of various neuro-symbolic approaches: \cite{jain_improving_2021} and 
+\cite{hubert_treat_2024} use schema-based inconsistencies to generate negative samples for KGEs or to directly operate in the training loss, \cite{wu_learning_2022} include type information in the rule learning process, \cite{wiharja_schema_2020,wang_schema-aware_nodate} focus on \textit{schema correct} triples to iteratively learn LP methods.
+\section{Future work}
+[likely not going to go into the paper, just for reference for possible next tasks] RM systems need to decide how to aggregate rules and confidence at prediction level: given the same `target' triple, if multiple rules can predict it, what is the confidence of the triple?
+
+Basic approaches:
+\begin{itemize}
+    \item Max-conf: the triple is predicted with a confidence equal to the highest confidence among rules. The advantage is that this is clean and simple, the disadvantage is that it sacrifices a lot of information which could support the triple and `push' beyond very certain rules
+    \item noisy-or: each rule contribution is summed and weighted. This allows for more nuanced and informed aggregation, but in practice it performs worse: RM often predict very similar rules or even funcionally equivalent. Applying noisy-or over estimates the contributions of these rules, skewing results randomly.
+
+    SAFRAN fixes this by clustering rules under similarity and then applying noisy or on the clusters.
+\end{itemize}
+
+First of all, one could use the schema, instead of statistical clustering, to understand which rules are equivalent (there are chances this has been done, I haven;t checked literature yet)
+
+Second, one could study how exceptions and clusters interact: if, by my method above, one rule should not trigger, how would this influence the cluster under noisy or? (Currently unclear how many of the restrictions would be covered by this case though)
+
+
+%\section{Various practical considerations}
+
+
+
+\appendix
+
+\section{Addendum: issue with the in-rule classification} \label{app:mydoubt}
+    % sharing (at least) the grounding of an initial variable. 
+While I like the in-graph, in-rule, out-rule distinction,  and it allows for the nice metaphor of the pipes producing mnms, I am not certain I can `appropriately' treat it.
+
+As of now, I'm only considering domain/range restrictions and functional/inverse functional restrictions. These easily share in-graph violations, so no issue there.
+
+My doubts stem from in-rule: this type of violations can often happen in the func/inv-func properties (see the examples in the section above), but in the domain/range it only covers very specific fringe cases: there must exist two groundings which lead to the same entity being subject and object, respectively, of the head triple of the rule. The dom and range of the triple must be disjoint, and the entity must not already be declared as any of the two types.
+
+\textcolor{red}{Example (unlikely to happen exactly like this but possible) from gemini:}
+
+\textbf{Rule:} $(?s, isAssignedToWard, ?x) , (?x, wardIsManagedBy, ?o) \rightarrow (?s, hasPrimaryCaregiver, ?o)$
+
+\textbf{Data:} $(Alex, isAssignedToWard, WardA)$; $(WardA, wardIsManagedBy, Casey)$; $(Casey, isAssignedToWard, WardB)$; $(WardB, wardIsManagedBy, Bob)$
+
+\textbf{Assumptions}: hasPrimaryCaregiver has dom:Patient, range:Nurse, Patient and Nurse are disjoint (which is a formalization mistake, but let's ignore it for the sake of example), and type(Casey) is only Person
+
+in this case two applications of the rule will lead to Casey being Nurse and Patient, thus inconsistent
+
+This is the only in-rule type of inconsistency I could find.
+
+\textcolor{red}{The issue: accounting for this requires a full refactoring of the code, just to account for some very rare fringe cases that have limited influence and probably require formalization mistakes}
+
+How to solve?
+\begin{itemize}
+    \item refactor the code (i'd rather avoid)
+    \item check if this involves formalization mistakes and try to prove it, then ignore
+    \item add the constraint for in-rule violations to happen from multiple application of the same rule \textbf{sharing a starting variable substitution}. Simple solution that kind of matches how LP is testesd, but automatically excludes the dom/range cases and it's just tailor made for functionality and similar
+\end{itemize}
+\section{Inconsistencies queries} \label{app:incons}
+
+
+\begin{itemize}
+    \item Functionality restrictions inconsistencies:
+    \begin{lstlisting}
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+
+SELECT (COUNT(*) as ?total)
+WHERE {
+    select distinct ?s ?p ?o where {
+      GRAPH <http://newtriples/> {
+        ?s ?p ?o .
+      }
+      {
+        SELECT ?s ?p
+        WHERE {
+          ?p rdf:type owl:FunctionalProperty .
+          ?s ?p ?o_inner .
+        }
+        GROUP BY ?s ?p
+        HAVING (COUNT(DISTINCT ?o_inner) > 1)
+      }
+	}
+}
+    \end{lstlisting}
+    
+    
+    \item domain, range restrictions inconsistencies:
+    \begin{lstlisting}
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+
+SELECT ?domainCheckCount ?rangeCheckCount
+WHERE {
+    {
+        SELECT (COUNT(*) AS ?domainCheckCount)
+        WHERE {
+            SELECT DISTINCT ?s ?p ?o 
+            WHERE {
+                GRAPH <http://newtriples/> {
+                    ?s ?p ?o .
+                }
+                {
+                    ?s ?p ?o .
+                    ?s a ?type1 .
+                    ?p rdfs:domain ?dom .
+                    ?type1 owl:disjointWith ?dom .
+                }
+            }
+        }
+    }
+    {
+        SELECT (COUNT(*) AS ?rangeCheckCount)
+        WHERE {
+            SELECT DISTINCT ?s ?p ?o 
+            WHERE {
+                GRAPH <http://newtriples/> {
+                    ?s ?p ?o .
+                }
+                {
+                    ?s ?p ?o .
+                    ?o a ?type2 .
+                    ?p rdfs:range ?ran .
+                    ?type2 owl:disjointWith ?ran .
+                }
+            }
+        }
+    }
+}
+    \end{lstlisting}
+    
+\end{itemize}
+
+\section{YAGO4.5-10 dataset construction}
+
+We build a subset of YAGO4.5\cite{suchanek_yago_2024} targeted to link prediction inspired by the benchmark dataset yago3.10.
+
+Our YAGO4.5-10 consists of all `fact' triples, or specifically triples only involving entities, and excluding literals. Additionally, to avoid sparsity issues, only triples whose entities (both in subject and object positions) have at least 10 links are kept.
+
+[Maybe not needed for the main paper, but for future reference] The steps for bulding such dataset are as follows:
+\begin{itemize}
+    \item Convert yago-facts.ttl to yago-facts.nt, for textual processing (actually first done by converting into hdt, not strictly needed)
+    \item Filter the dataset excluding all rdf,rdfs,owl,shacl and dcterm triples. Additionally, remove all triples ending with literals. Script in Appendix\ref{app:scripts}.
+    \item Count appearances of entities in the filtered file. Keep only lines where both s and o have count $\ge 10$  
+\end{itemize}
+
+
+\section{Scripts}\label{app:scripts}
+
+% \section{Possible small `nesy' side-project: focus on functionality} 
+
+% Idea: train a KGE model specialized on functional properties. This does not need to be calibrated as it will need to discriminate among the same (s,p,?) pattern. As we exploit ontological knowledge, it should also be easy to generate meaningful negative samples. When a in-rule conflict happens: query the model and get the better ranked triple.
+
+\bibliographystyle{splncs04}
+\bibliography{references}
+
+\end{document}
+% \section{Possible research tasks}
+% We study the effect of modifying $\mathcal{IR}$ into $\mathcal{IR}_{ex}$, where a rule can include exceptions and is defined as:
+
+% $$\bigwedge_{i=1}^{n} (A_{i-1}, b_i, A_i) \rightarrow (A_0, h , A_n) |\bigwedge_{j=1}^{m} (A'_{j}, r_k, A''_j) $$ with $A',A''\in \{A_0,...,A_n\}$.
+
+% \subsection{Getting consistency}
+% \textbf{RQ:} Can we find $\mathcal{IR}_{ex}$ such that $\mathcal{G}^{IR_{ex}} \cup \mathcal{O} \not\models \bot$ but doesn't remove any `true' predictions from $\mathcal{IR}$
+    
+% \textit{Comment} 
+% This is likely intractable for most uses, as it would involve very granular exceptions. 
+
+% \subsection{Improving LP} 
+% \textbf{RQ:} Can we improve LP by efficiently (?) constructing a $\mathcal{IR}_{ex}$ that reduces the number of incompatible triples?
+
+% \textit{Comment} 
+% This is a relaxed version of the previous point and is probably more tractable. The `trivial' extension is to find for each rule a counterexample and use it as an exception condition (i.e. using the incompatible/false triple as an exception), this would -trivially- ensure that LP metrics are not worse than when using the original $\mathcal{IR}$, but the set of incompatible triples is smaller in size.
+
+% \subsection{`Normal' exception rules}
+% (probably more a solution than a question)
+
+% \textbf{RQ/Hypothesis:} Can extending mined rules with a `normal' exception condition improve consistency and/or LP?
+
+% This is an idea that came from observation in the data, for example in DBpedia a lot of rules predict 'country', but often if the subject already has a country, there is no point applying the rule (the are rare cases in which something has two countries, but it is more likely that it could be an exception). So one could extend the rules into $b \rightarrow h | h'$, in a sense reminiscent of default normal rules. This is also linked to the partial completeness assumption some authors use for rule mining (i.e. given a (s,r,o) triple exists in the graph, it is assumed the graph already contains all other (s,r,?) that are true, thus considering any (s,r,o'') not in G as strictly false).
+
+% This could work as a starting baseline, a basic `atomic' exception
+
+% \section{Practical considerations}
+% Cases 3.1 and 3.2 require the usage of datasets with ontologies (easy part) that can detect inconsistencies, I could easily find a KG commonly used for LP that also has an ontology with \textit{disjointedness} or \textit{functional} restrictions.
+
+% Possible KG with schemas:
+% \begin{itemize}
+%     \item   \cite{wiharja_more_2018} uses  DBpedia-p (politics),NELL,IBM-KG and a a custom `tbox scanner' to find inconsistency patterns, but doesn't describe how. 
+%     \item \cite{hao_universal_2019} uses a custom implementation of YAGO and DBpedia, but only to extract concepts
+%     \item YAGO \url{https://yago-knowledge.org/getting-started} is used by a few papers \cite{jain_improving_2021,hao_universal_2019} and comes with constraints about functionality, disjointedness and domain/range.
+%     \item repository with `semantically enriched lp datasets' \url{https://github.com/Wimmics/semantically-enriched-link-prediction-datasets.git}
+
+% \end{itemize}
+
+
+
+
+% \section{Experiment ideas}
+% \subsection{Baseline} \label{sec:baseline_exceptions}
+
+% After mining rules, extend them with simple exception conditions based on ontological properties. Maybe select some of the inconsistent patterns
+
+% \begin{itemize}
+%     \item functional properties: `normal default exception' (i.e. ... $\rightarrow$ X death\_place Y unless X death\_place \_)
+%     \item asymmetric (if they exist): ... $\rightarrow$ X r Y unless Y r X
+    
+
+% \end{itemize}
+
+% \subsection{domain/range and disjointedness} (to be checked) requires extended preprocessing, but given disjointedness (in YAGO: People // Place //... \footnote{something else i will manage to access once the site is back online}). One can find exceptions of the type: predict $\rightarrow$(X, r, Y) unless  (X, r2, Z), where we know the domains of r and r2 are different and disjoint.
+
+% Idea:
+% \begin{itemize}
+%     \item given $\{head\} \in IR$, set of head triples, keep an index of head-related inference rules.
+%     \item define $incompatible\_tuples = \{(head_i,head_j)\}$ where $domain(head_i)  \sqcap domain(head_j) \sqsubseteq \bot$ or $domain(head_i)  \sqcap range(head_j) \sqsubseteq \bot$ \footnote{techically domain refers to the relation of the head triple, but as the triple is identified in a unique way by its relation - s and o are variables - it should be clear}.
+    
+%     These tuples identify incompatible sets of rules. 
+%     \item \textbf{Find most likely incompatibilities}: How is tbd. A starting heuristic might be if they share at least one relation in the body and the variables are coherent.
+%     \item Sort rules by \textit{confidence}, `cascade' exception conditions 
+%     \item Find a way to do this efficently (?). 
+% \end{itemize}
+
+% \textit{Comment:}This should increase performance, but is it a contribution?
+
+% \section{Analysis}
+% Performance can be tested in the following way(s)
+% \subsection{Link prediction metrics}
+% See section \ref{sec:LP} above, comparison with rule miners performance. 
+% For the simple case \ref{sec:baseline_exceptions}, in \textit{theory}, it should be better or equal, given that we start from the same ruleset and exclude cases ontologically inconsistent. 
+
+% \subsection{Time performance}
+% Straightforward, as this adds load on top of mining. Besides the statistics i can try to see if there is a computational upper bound in the various cases - not an expert on this though
+
+% \subsection{Inconsistency reduction}
+
+% % From \cite{jain_improving_2021}: `an explanation for inconsistency of $\mathcal{G} \cup \mathcal{O}$ is a (subset inclusion) smallest inconsistent subset of $\mathcal{G} \cup \mathcal{O}$.
+
+% % \textit{Comment: i need to find reasoners optimized for explanations, the cited paper includes a resticted language, which i can probably use, that simplifies the task}
+
+% % One `naive' approach to compute the reduction in inconsistency is to compute explanations for $\mathcal{G}^{IR}$ and $\mathcal{G}^{IR_{ex}}$ and compare their cardinality.
+
+% Given $\mathcal{G}^{IR}$ and $\mathcal{G}^{IR_{ex}}$, assuming they are both inconsistent, one can try to `naively' compute their repair (need to look into literature here), by removing problematic triples. One possible measure of `improvement' is a reduction in the number of removed triples.
+
+% To keep the evaluation more fair, one can apply a related approach together with link prediction. 
+% Given a query triple $(s,r,?)$ (with the same reasoning holding for the subject-query), one can extract the first N ranked answers from the ruleset, and compute the number of inconsistent triples (approach taken by \cite{jain_improving_2021}). Which might be the preferred way if we target the task of link prediction.
+
+
+
+% \begin{table}[]
+%     \centering
+%     \begin{tabular}{|c|l|l|}
+% \hline
+% ID & TBox subset of the pattern & ABox subset of the pattern \\
+% \hline
+% 1 & Domain(r)=D, D $\sqcap$ A $\sqsubseteq \perp$ & (e1, r, e2), (e1, rdf:type, A) \\
+% \hline
+% 2 & Range(r)=R, R $\sqcap$ A $\sqsubseteq \perp$ & (e1, r, e2), (e2, rdf:type, A) \\
+% \hline
+% 3 & Domain(r1)=D1, Domain(r2)= D2, r1 $\sqsubseteq$ r2, D1 $\sqcap$ D2 $\sqsubseteq \perp$ & (e1, r1, e2) \\
+% \hline
+% 4 & Range(r1)=R1, Range(r2)= R2, r1 $\sqsubseteq$ r2, R1 $\sqcap$ R2 $\sqsubseteq \perp$ & (e1, r1, e2) \\
+% \hline
+% 5 & Asymmetric(r) & (e1, r, e2), (e2, r, e1) \\
+% \hline
+% 6 & Symmetric(r1), Asymmetric(r2), r1 $\sqsubseteq$ r2 & (e1, r1, e2) \\
+% \hline
+% 7 & Symmetric(r2), Asymmetric(r3), r1 $\sqsubseteq$ r2, r1 $\sqsubseteq$ r3 & (e1, r1, e2) \\
+% \hline
+% 8 & Irreflexive(r) & (e1, r, e1) \\
+% \hline
+
+% \end{tabular}
+%     \caption{(part of) list of inconsistent patterns}
+%     \label{tab:ijp}
+% \end{table}
+
+
+% These violations in the LP context stem from confidence computation\footnote{In the sense that ususally rules with quite low confidence are still kept, so rule like the one studiedAt->worksFor, which for phd student might have a 10-20\% confidence, would still be likely kept} and ranking: LP require rankings, so given a query i.e. (giacomo, worksAt, ?) first all rules that can predict an answer are triggered. Then the triples generated are ranked according to rule confidence. The approach that usually works best \cite{ott_rule-based_2023} is picking the highest confidence among rules that generated the triples. This (coupled with cutting the ranking at pos 1) would mitigate out-rule violations, but leave in-rule violations impossible to discriminate.
+
+% An alternative is using noisy-or or a weighted version among all candidate rules, this \textit{might} overcome the violations (again, cutting at rank 1), but has generally shown poorer lp performance \cite{ott_rule-based_2023}.
