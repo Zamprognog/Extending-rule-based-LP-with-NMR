@@ -18,27 +18,27 @@
 \maketitle
 
 \begin{abstract}
-    Knowledge Graphs (KGs) are widely used relational data structures that allow both human and machine readability, but are inherently incomplete. Recent studies have explored the benefits of mining and applying inference rules to suggest new relations among existing entities to extend a KG, a task known as Link Prediction (LP). While rules have the advantage of transparency compared to black-box machine learning methods, it has been noted how the commonly used Horn Rules suffer from a lack of expressivity. Additionally, even if available, semantic information of KGs is rarely leveraged, as mining algorithms usually focus only entity-level triples. This is also reflected on standard LP metrixs
+    Knowledge Graphs (KGs) are widely used relational data structures that allow both human and machine readability, but are inherently incomplete. Recent studies have explored the benefits of mining and applying inference rules to suggest new relations among existing entities to extend a KG, a task known as Link Prediction (LP). While rules have the advantage of transparency compared to black-box machine learning methods, it has been noted how the commonly used Horn Rules suffer from a lack of expressivity. Additionally, even if often originally available, semantic information of KGs is rarely leveraged when approaching LP, as mining algorithms usually focus only entity-level triples. This is also reflected on standard LP metrics, which compute a ranking of test triples with respect of other predictions, but ignore the semantic correctness of the predictions themselves, possibly providing a skewed representation of the real-world applicability of such methods.
 
-    In this work, we study the effect
+    In this work, we studied the effect of extending rule expressivity with non-monotonicity: leveraging schema information, we automatically define exception cases based on the predicted relation, potentially stopping the rule from triggering and producing semantically incorrect facts. We showed that applying such exceptions at single-rule level (thus ignoring between-rule interactions) allows to substantially reduce the number of inconsistent triples, with respect to the considered restrictions, at the cost of a limited increase in inference time. We additionally show that standard rank-based LP metrics are influenced by the different rule expressivity in a limited way, further suggesting the need of alternative metrics that can take into account the semantic quality of predicted triples.
 \end{abstract}
 \section{Introduction}
 
-In recent years, Knowledge Graphs (KGs) \cite{hogan_knowledge_2022} have attracted interest due to their dual nature of being inherently readable both from humans and machine, allowing both to encode expert knowledge and being easily processed algorithmically. Their usage stem from industrial applications \cite{} to shareable scientific repositories \cite{}, and, with the recent rise of Large Language Models, they have gathered further interest as means to ground the generation process with reliable facts \cite{}.
+In recent years, Knowledge Graphs (KGs) \cite{hogan_knowledge_2022} have attracted interest due to  being inherently readable both from humans and machines, allowing both to encode expert knowledge and being easily processed algorithmically. Their usage spans from industrial applications \cite{tang_exploring_2023,deng_research_2022,han_construction_2022} to shareable scientific repositories \cite{himmelstein_systematic_nodate,jaradeh_open_2019,dessi_cs-kg_2022}, and, with the recent rise of Large Language Models, they have gathered further interest as means to ground the generation process with reliable facts \cite{procko_graph_2024}.
 
 
 Nonetheless, KGs are often incomplete, meaning that they do not (and often cannot) capture all the facts relevant to their domain fields: they can miss information about individuals, or relations that connect them. 
-This incompleteness often stems from the fact that KGs are automatically generated from data or compiled by experts, but it might also be due to new facts not being known. KG incompleteness hence implies that methods able to suggest missing facts might even `discover' new knowledge \cite{}. The task of KG Completion, and specifically of Link Prediction (LP), aims at predicting missing links (edges) that are likely to be true in the context of the KG.
+This incompleteness often stems from the fact that KGs are automatically generated from data or compiled by experts, but it might also be due to new facts not being known. KG incompleteness hence implies that methods able to suggest missing facts might even `discover' new knowledge. The task of KG Completion, and specifically of Link Prediction (LP), aims at predicting missing links (edges) that are likely to be true in the context of the KG.
 
-Among the techniques used for LP, Rule Mining (RM) \cite{meilicke_anytime_2024, harth_fast_2020} has found a renewed interest for being both more easily human-readable compared to subsymbolic methods like KG embeddings \cite{} and Graph Neural Networks \cite{}, while at the same time showcasing competitive performances. Most RM methods involve finding and extracting patterns in the data, which usually take the shape of closed paths connecting pairs of entities. Nonetheless, despite being closer to symbolic methods, RM algorithms often fail to consider, and exploit, the semantic information that comes with the KG, focusing instead on frequent patterns.
+Among the techniques used for LP, Rule Mining (RM) \cite{meilicke_anytime_2024, harth_fast_2020} has found a renewed interest for being both more easily human-readable compared to subsymbolic methods like KG embeddings \cite{wang_knowledge_2017} and Graph Neural Networks \cite{ye_comprehensive_2022}, while at the same time showcasing competitive performances. Most RM methods involve finding and extracting patterns in the data, which usually take the shape of closed paths connecting pairs of entities. Nonetheless, despite being closer to symbolic methods, RM algorithms often fail to leverage the semantic information that might come with the KG, focusing instead on frequent patterns.
 
-For example, given the rule $parent(X, Y), bornIn(X,C) \rightarrow bornIn(Y,C)$, it is likely to hold a sufficient degree of success. In the default RM application, given a (s, bornIn, ?) query, the rule will be applied for any available matching body, is certain to introduce inconsistencies if paired with the the possibility of parents coming from different cities while including information about the functionality of `bornIn' would at least highlight a possible issue.
+For example, given the rule $parent(X, Y), bornIn(X,C) \rightarrow bornIn(Y,C)$, it is likely to hold a sufficient degree of success. In the default RM application, given a (s, bornIn, ?) query, the rule will be applied for any available matching body, is certain to introduce inconsistencies if paired with the the possibility of parents coming from different cities, while including information about the functionality of `bornIn' would at least highlight a possible issue.
 
-This is only partially captured by standard LP metrics, which are computed from a ranking of predictions given a `silver-standard' test set \cite{}, but it is likely to reduce the applicability of LP solutions in the practical case: while inconsistent triples from the same rule might have a limited effect on ranking, once materialized they would require further operation to repair the knowledge base \cite{}.
+This is only partially captured by standard LP metrics, which are computed from a ranking of predictions given a `silver-standard' test set \cite{paulheim_knowledge_2016}, but it is likely to reduce the applicability of LP solutions in the practical case: while inconsistent triples from the same rule might have a limited effect on ranking metrics, once materialized they would require to repair the knowledge base.
 
 Some previous work suggested the potential of extending RM systems with rule exceptions, taking a non-monotonic approach \cite{gad-elrab_exception-enriched_2016,tran_towards_2017,lisi_combining_nodate}. In this work, we study the effect of extending a set of mined rules with semantic-aware baseline exception conditions: given the set of semantic restrictions defined in KG-related ontologies, we use them to stop the activation of rules when they would result in a trivial violation of such restrictions. 
 
-We then compare the original and extended set of rules on both predictive performance and semantic validity, to explore the trade-off derived by stopping violations trivially caused by rules: while blocking potentially inconsistency-generating rules should increase semantic validity, it will also predict a lower number of triples, which might affect the performance of the model under standard rank-based link prediction metrics.
+We then compare the original and extended set of rules on semantic validity of predicted triples, to explore the trade-off derived by stopping violations trivially caused by rules: our result show that applying exceptions at single-rule level (i.e. without considering rule-rule interaction) already allows for a substantial decrease in the number of inconsistent triples predicted, with a limited increase in computational time. Additionally, while we do not focus on optimizing benchmark predictive performance, we show preliminary results suggesting that standard rank-based metrics are not heavily influenced by the change in expressivity of the rule sets, posing an argument in favor of the need for integrating such metrics with other, semantic-oriented, tools.
 
 \subsection{Basic definitions}
 Our input is defined as a tuple $(\mathcal{G},\mathcal{O},\mathcal{IR})$ where:
@@ -262,7 +262,7 @@ Running a KG completion on 2 KGs that contain schemas: NELL995 \cite{xiong_deepp
 
 \begin{table}[t]
 \centering
-
+\caption{Materialization metrics for the datasets and rulesets, stopping after the last rule which brings the number of new triples above the threshold of 10\%. `Functional', `domain' and `range' refer to the number of inconsistent triples among the materialized ones. For Hetionet, not functional restriction is defined, thus no violations.}
 \label{tab:metrics_part2}
 \begin{tabular}{l | c c c c c c}
 \toprule
@@ -295,7 +295,7 @@ AMIE + nmr & 30 & 609k & 2 & \textbf{0} & \textbf{0} & 149s \\
 
 \bottomrule
 \end{tabular}
-\caption{Materialization metrics for the datasets and rulesets, stopping after the last rule which brings the number of new triples above the threshold of 10\%. `Functional', `domain' and `range' refer to the number of inconsistent triples among the materialized ones. For Hetionet, not functional restriction is defined, thus no violations.}
+
 
 \end{table}
 
@@ -304,7 +304,7 @@ AMIE + nmr & 30 & 609k & 2 & \textbf{0} & \textbf{0} & 149s \\
 
 \begin{table}[t]
 \centering
-
+\caption{Materialization metrics for the datasets and rulesets, stopping after the last rule which brings the number of new triples above the threshold of 30\%. `Functional', `domain' and `range' refer to the number of inconsistent triples among the materialized ones. For Hetionet, not functional restriction is defined, thus no violations.}
 \label{tab:metrics_part2}
 \begin{tabular}{l | c c c c c c}
 \toprule
@@ -336,7 +336,7 @@ AMIE & 48 & 1.24M & 1.42k & 13.4k & 0 & 1172 \\
 AMIE + nmr & 43 & 1.17M & 2 & 0 & 0 & 2142s \\
 \bottomrule
 \end{tabular}
-\caption{Materialization metrics for the datasets and rulesets, stopping after the last rule which brings the number of new triples above the threshold of 30\%. `Functional', `domain' and `range' refer to the number of inconsistent triples among the materialized ones. For Hetionet, not functional restriction is defined, thus no violations.}
+
 
 \end{table}
 
@@ -345,7 +345,7 @@ AMIE + nmr & 43 & 1.17M & 2 & 0 & 0 & 2142s \\
 
 \begin{table}[t]
 \centering
-\caption{Standard LP metrics.}
+\caption{Rank-based LP metrics.}
 \label{tab:metrics_part1}
 \begin{tabular}{l | c c c c}
 \toprule
@@ -370,6 +370,7 @@ AMIE + nmr & 0.0164 & 0.0690 & 0.0346 & 1.0 \\
 \end{tabular}
 \end{table}
 %%%%%%%%%%%%%%%%%%%%%%%
+
 
 \section{Discussion}
 \begin{itemize}
