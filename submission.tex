@@ -18,7 +18,7 @@
 %
 % If you use the hyperref package, please uncomment the following two lines
 % to display URLs in blue roman font according to Springer's eBook style:
-%\usepackage{color}
+\usepackage{color}
 %\renewcommand\UrlFont{\color{blue}\rmfamily}
 %\urlstyle{rm}
 %
@@ -199,9 +199,9 @@ The current limitation of our method to ungrounded rules prevents the leveraging
 
 For thoroughness, we report standard rank-based LP metrics. These results are included solely for validating against performance loss between the rule-set versions and should not be interpreted as an objective benchmarking result. 
 
-\paragraph{Materialization evaluation} Sorting the rules by confidence, we apply them until at least 10\% and 30\% of new triples (wrt the size of the graph) are materialized, stopping processing after completing the \{rule, entity\} search that surpassed the threshold.
+\paragraph{Materialization evaluation} Sorting the rules by confidence, we apply them until at least 10\% and 30\% of new triples (with respect to the size of the graph) are materialized, stopping processing after completing the \{rule, entity\} search that surpassed the threshold.
 The full graph and the newly materialized triples are then both loaded in a triple store as separate named graphs. 
-For each considered restriction, we then compute the absolute number of new triples that would violate such restriction. This is done via SPARQL queries, which can be seen in appendix \ref{sparql}\footnote{We use a RDFS-plus engine, but consider entities as mutually disjoint for functionality matter.}. We additionally report the computational time for performing the materialization in both conditions, the non-monotonic case also including the schema-parsing.
+For each considered restriction, we then compute the number of new triples that would violate such restriction, and we further compute the total number of new triples that are inconsistent. This is done via SPARQL queries, which can be seen in appendix \ref{sparql}\footnote{We use a RDFS-plus engine, but consider entities as mutually disjoint for functionality matter.}. We additionally report the computational time for performing the materialization in both conditions, the non-monotonic case also including the schema-parsing.
 
 \paragraph{Ranking-based LP metrics}
 LP metrics are usually \textit{ranking metrics}. Given a set of test triples, i.e. positive triples that we know are in the KG but have not been seen by the model, for each belonging test triple $t_i$ we compute its ranking relative to all possible corruption of its subject and/or object (usually excluding corruptions that would be part of the known graph, known as \textit{filtered} condition).
@@ -225,21 +225,12 @@ Further, we compute an adapted version of the Sem@k metric, proposed by \cite{hu
     \]
     Where $q$ is a test triple, $\mathcal{S}_q^K$ is the set of ranked top-K predictions for its corruption, and the \textit{consistent} returns true if a given triple is consistent wrt to the KG and related schema, false otherwise.
 \end{itemize}
+
+
 %%%%%%%%%%%
-\section{Experiments}
-
-In principle, our method can be applied on any rule set consisting of closed path rules. To perform an empirical evaluation, we study the effects of baseline non-monotonic extensions of rules mine using two highly performing rule miners, AnyBurl and AMIE. 
-
-We apply the setting to the following knowledge graphs, which are selected as they come with a defined schema:
-
-\begin{itemize}
-    \item NELL995 \cite{xiong_deeppath_2017}, a benchmark knowledge base completion dataset based on the Never-Ending Language Learning (NELL) system.
-    \item Hetionet \cite{himmelstein_systematic_nodate} a large, heterogeneous biomedical knowledge graph that integrates data from a collection public databases to connect various entities like genes, compounds, and diseases.
-    \item YAGO4.5-10: we build a link-prediction oriented version of YAGO4.5 \cite{suchanek_yago_2024}, following the same approach of the previous YAGO3.10 \cite{dettmers_convolutional_2018}: we maintain only a-box triples that involve entities appearing themselves in at least 10 other similar triples. YAGO4.5 is a general-purpose knowledge graph, which combines entity data from Wikidata with a cleaned, logic-consistent taxonomy primarily derived from Schema.org.
-\end{itemize}
-
 \begin{table}[]
     \centering
+        \caption{Analyzed datasets}
     \begin{tabular}{l|c|c|c|c}
          name & graph size (triples) & available restrictions & train size & test size   \\
          \hline
@@ -249,47 +240,44 @@ We apply the setting to the following knowledge graphs, which are selected as th
          % WD18K & & \\
          % YAGO3-10 & & \\
     \end{tabular}
-    \caption{Analyzed datasets}
+
     \label{tab:datasets}
 \end{table}
 
-%%%%%%%%
-\section{Results}
-
-
+%%%%%%%%% 10% %%%%%%%%%%
 
 \begin{table}[h]
 \centering
 \caption{Materialization metrics for the datasets and rule sets, stopping after the last rule which brings the number of new triples above the threshold of 10\%. `Func', `dom' and `ran' refer to the number of inconsistent triples among the materialized ones according to, respectively functional, domain and range restrictions. For Hetionet, not functional restriction is defined, thus no violations.}
-\label{tab:metrics_part2}
-\begin{tabular}{l | c c c c c c}
+\label{tab:mat10}
+\begin{tabular}{l | c c c c c c c}
 \toprule
-\multicolumn{7}{c}{NELL995} \\
+\multicolumn{8}{c}{NELL995} \\
 \midrule
-Ruleset & \# trig rules & \# triples & func  & dom & ran & time \\
+Ruleset & \# trig rules & \# triples & func  & dom & ran & tot & time \\
 \midrule
-AnyBURL & 252 & 14.2k & 1.49k & 162 & 321 & 143s \\
-AnyBURL + nmr & 269 & 14.8k & 679 & 0 & 0 & 11s+ 174s \\
-AMIE & 11 & 14.8k & 48 & 3029 & 7621 & 37s \\
-AMIE + nmr & 36 & 14.6k & 6 & 0 & 0 & 11+42s \\
+AnyBURL & 578 & 14.9k & 989 & 184 & 321 & 1441 & 216s \\
+AnyBURL + nmr & 585 & 16.9k & 691 & 0 & 0 & 691 & 11+ 501s \\
+AMIE & 11 & 14.8k & 48 & 3029 & 7621 & 8204 & 4s \\
+AMIE + nmr & 36 & 14.6k & 6 & 0 & 0 & 6 & 11+28s \\
 \midrule
-\multicolumn{7}{c}{Hetionet} \\
+\multicolumn{8}{c}{Hetionet} \\
 \midrule
-Ruleset & \# trig rules & \# triples & func  & dom & ran & time \\
+Ruleset & \# trig rules & \# triples & func  & dom & ran & tot & time \\
 \midrule
-AnyBURL & 2 & 565k & 0* & 0 & 0 & 143s \\
-AnyBURL + nmr & 2 & 565k & 0* & 0 & 0 & 0.06+ 174s \\
-AMIE & 2 & 663k & 0* & 26.2k & 0 & 36s \\
-AMIE + nmr & 2 & 637k & 0* & 0 & 0 & 0.06+ 42s \\
+AnyBURL & 2 & 565k & 0* & 0 & 0 & 0 & 146s \\
+AnyBURL + nmr & 2 & 565k & 0* & 0 & 0 & 0& 0.06+ 177s \\
+AMIE & 2 & 663k & 0* & 26.2k & 0 & 26.2k & 37s \\
+AMIE + nmr & 2 & 637k & 0* & 0 & 0 & 0 &0.06+ 42s \\
 \midrule
-\multicolumn{7}{c}{YAGO4.5} \\
+\multicolumn{8}{c}{YAGO4.5-10} \\
 \midrule
-Ruleset & \# trig rules & \# triples & func  & dom & ran & time \\
+Ruleset & \# trig rules & \# triples & func  & dom & ran & tot & time \\
 \midrule
-AnyBURL & 94 & 342k & 41.2k & 2.02k & 0 & 659s \\
-AnyBURL + nmr & 80 & 329k & 4 & \textbf{0} & \textbf{0} & 101+501s \\
-AMIE & 35 & 614k & 1.42k & 103 & 0 & 167s \\
-AMIE + nmr & 30 & 609k & 2 & \textbf{0} & \textbf{0} & 92+149s \\
+AnyBURL & 35 & 515k & 353 & 0 & 0 & 353 & 499s \\
+AnyBURL + nmr & 19 & 500k & 0 & 0 & 0 & 0 & 103+120s \\
+AMIE & 4 & 501k & 49 & 0 & 0 & 49 & 18s \\
+AMIE + nmr & 3 & 499k & 0 & 0 & 0 & 0 & 91+15s \\
 
 \bottomrule
 \end{tabular}
@@ -303,40 +291,75 @@ AMIE + nmr & 30 & 609k & 2 & \textbf{0} & \textbf{0} & 92+149s \\
 \begin{table}[h]
 \centering
 \caption{Materialization metrics for the datasets and rule sets, stopping after the last rule which brings the number of new triples above the threshold of 30\%. `Func', `dom' and `ran' refer to the number of inconsistent triples among the materialized ones according to, respectively functional, domain and range restrictions. For Hetionet, not functional restriction is defined, thus no violations.}
-\label{tab:metrics_part2}
-\begin{tabular}{l | c c c c c c}
+\label{tab:mat30}
+\begin{tabular}{l | c c c c c c c}
 \toprule
-\multicolumn{7}{c}{NELL995} \\
+\multicolumn{8}{c}{NELL995} \\
 \midrule
-Ruleset & \# trig rules & \# triples & func  & dom & ran & time \\
+Ruleset & \# trig rules & \# triples & func  & dom & ran & tot & time \\
 \midrule
-AnyBURL & 713 & 42.8 & 14.4k & 647 & 580 & 270s \\
-AnyBURL + nmr & 1025 & 43.2k & 1978 & 0  & 0 & 11+ 2249s \\
-AMIE & 51 & 42.7k & 89 & 11.4k & 11.9k & 16s \\
-AMIE + nmr & 84 & 42.7 & 6 & 0 & 0 & 11+ 65s \\
+AnyBURL & 1047 & 42.8k & 14.5k & 706 & 591 & 15.3k & 416s \\
+AnyBURL + nmr & 1334 & 43.6k & 1989 & 0  & 0 & 1.99k & 11+ 1128s \\
+AMIE & 51 & 42.7k & 89 & 11.4k & 11.9k & 17.5k & 17s \\
+AMIE + nmr & 84 & 42.7k & 6 & 0 & 0 & 6& 11+ 65s \\
 \midrule
-\multicolumn{7}{c}{Hetionet} \\
+\multicolumn{8}{c}{Hetionet} \\
 \midrule
-Ruleset & \# trig rules & \# triples & func  & dom & ran & time \\
+Ruleset & \# trig rules & \# triples & func  & dom & ran & tot & time \\
 \midrule
-AnyBURL & 4 & 1.16M & 0* & 0 & 0 & 1712s \\
-AnyBURL + nmr & 4 & 1.15M & 0* & 0 & 0 & 0.06+2658s \\
-AMIE & 3 & 920k & 0* & 26.2k & 0 & 74s \\
-AMIE + nmr & 3 & 894k & 0* & 0 & 0 & 0.06+95s \\
+AnyBURL & 4 & 1.15M & 0* & 0 & 0 & 0 & 1609s \\
+AnyBURL + nmr & 4 & 1.15M & 0* & 0 & 0 & 0 &0.06+2528s \\
+AMIE & 3 & 920k & 0* & 26.2k & 0 & 26.2k& 73s \\
+AMIE + nmr & 3 & 894k & 0* & 0 & 0 & 0& 0.06+93s \\
 \midrule
-\multicolumn{7}{c}{YAGO4.5} \\
+\multicolumn{8}{c}{YAGO4.5-10} \\
 \midrule
-Ruleset & \# trig rules & \# triples & func  & dom & ran & time \\
+Ruleset & \# trig rules & \# triples & func  & dom & ran & tot & time \\
 \midrule
-AnyBURL & 275 & 1.18M & 354k & 11.2k & 0 & 10037s \\
-AnyBURL + nmr & 223 & 1.83M & 24 & 0 & 0  & 107 + 12895s \\
-AMIE & 48 & 1.24M & 1.42k & 13.4k & 0 & 1172 \\
-AMIE + nmr & 43 & 1.17M & 2 & 0 & 0 &  88 + 2142s \\
+AnyBURL & 175 & 980k & 51.1k & 2.07k& 0 & 52.5k & 2340 \\
+AnyBURL + nmr & 218 & 988k & 22 & 0 & 0 & 22 & 96 + 1543s \\
+AMIE & 47 & 1.19M & 1.52k & 112 & 0 & 1.6k & 273s \\
+AMIE + nmr & 41 & 1.28M & 8 & 0 & 0 & 8 & 113 + 273s \\
 \bottomrule
 \end{tabular}
 
 
 \end{table}
+%%%%%%%%%%%
+\section{Experiments}
+
+\subsection{Experimental setup}
+In principle, our method can be applied on any rule set consisting of closed path rules. To perform an empirical evaluation, we study the effects of baseline non-monotonic extensions of rules mine using two highly performing rule miners, AnyBurl and AMIE. As we the methods mine different type of rules and with different criteria, we do not aim to directly compare the two intending instead to evaluate the effect of non-monotonic extensions on rule set of different types. We thus use the following settings:
+\begin{itemize}
+    \item AnyBURL: only cyclic rules, runtime 1000s, min confidence: 0.1, min support: 2, rule length 3 body atoms.
+    \item AMIE3: min pca confidence: 0.1, min confidence: 0.1, min support: 2, rule length 2 body atoms.
+\end{itemize}
+
+With AMIE, we keep the max length a 2 for performance reasons, as it performs a full search even on large KGs like the ones we analyze. Despite the trade-off, in this way we obtain closed path rules which are not strictly cyclic, and additionally we can exploit the usage of pca confidence offered by default by the miner.
+
+We extract rules from the following knowledge graphs, which are selected as they come with a defined schema:
+
+\begin{itemize}
+    \item NELL995 \cite{xiong_deeppath_2017}, a benchmark knowledge base completion dataset based on the Never-Ending Language Learning (NELL) system.
+    \item Hetionet \cite{himmelstein_systematic_nodate} a large, heterogeneous biomedical knowledge graph that integrates data from a collection public databases to connect various entities like genes, compounds, and diseases.
+    \item YAGO4.5-10: we build a link-prediction oriented version of YAGO4.5 \cite{suchanek_yago_2024}, following the same approach of the previous YAGO3.10 \cite{dettmers_convolutional_2018}: we maintain only a-box triples that involve entities appearing themselves in at least 10 other similar triples. YAGO4.5 is a general-purpose knowledge graph, which combines entity data from Wikidata with a cleaned, logic-consistent taxonomy primarily derived from Schema.org.
+\end{itemize}
+
+When computing standard LP metrics, we use the max-aggregation approach for matching rules: i.e. sorting the predictions in lexicographic order according to the confidence of the rules bringing such predictions. While we are aware of its practical limitations\cite{ott_safran_2021,ott_rule-based_2023}, it allows to narrow the focus on the single rules, which better fits our objective of seeing the effect of extending them with baseline exceptions.
+%%%%%%%%
+\subsection{Results}
+
+Tables \ref{tab:mat10} and \ref{tab:mat30} report the results for the materialization at thresholds of, respectively 10\% and 30\% new triples.
+
+Results suggest how even high confidence rules can cause violations, albeit rare, both for functional restrictions and domain/range restrictions, with AnyBURL rule set being more likely to cause the former, and AMIE to the latter\footnote{This is not surprising when considering that AMIE3's default operation is under partial completeness assumption, which, given a triple (s,p,o) considers as `false' all (s,p,o') facts not in the data, which is effective for functional properties}. Application of the non-monotonic extensions allows to improve consistency in in all cases, and seems to be particularly effective for the domain/range restrictions, consistently removing them. This generally comes at an expense in processing time, both as it requires parsing the schema, and for further processing of exception conditions. Nonetheless, in some cases (YAGO both at 10\% and 30\%) we notice a reduction of rule materialization time, likely due to highly `applicable' but inconsistency-prone rules being stopped. As an example: in YAGO many rules predicting `gender' are mined, but in the case a candidate subject already has a `gender' relation, all the rules which would likely predict incorrect information, or fail to fully materialize a path, will actually be stopped early, allowing to instead materialize other rules, which might be faster.
+
+% We besides the specific behavior 
+% In general, results also show that inconsistencies start being more noticeable when a larger number of triples is materialized, this is likely due to higher confidence rules being more precise and less widely applicable\footnote{Standard confidence is highest when most predictable heads are already part of the data, thus limiting the number of new triples that the rule will actually produce}, this is in turn reflected   by the effect on standard link prediction metrics.
+
+When observing the scores for hits@k and mrr, the influence of non monotonic extension is not highly noticeable, which we posit is explained by high quality rules being more precise and likely having the most influence at lower values of k, as each rule can provide predict multiple prediction given any (s,p,?) or (?,p,o) query.
+
+
+
 
 
 
@@ -366,7 +389,7 @@ AMIE + nmr & 0.0164 & 0.0690 & 0.0346 & 1.0 \\
 \bottomrule
 \end{tabular}
 \end{table}
-\section{Discussion}
+% \section{Discussion}
 \section{Limitation and Future Work}
 \section*{Appendix}
 % \begin{credits}
