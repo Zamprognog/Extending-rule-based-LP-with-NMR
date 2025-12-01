@@ -13,20 +13,24 @@
 \usepackage{booktabs}
 \usepackage{amsmath}
 \usepackage{amssymb} 
+\usepackage{hyperref}
+
+\usepackage[linesnumbered,ruled,vlined]{algorithm2e}
 % Used for displaying a sample figure. If possible, figure files should
 % be included in EPS format.
 %
 % If you use the hyperref package, please uncomment the following two lines
 % to display URLs in blue roman font according to Springer's eBook style:
 \usepackage{color}
-%\renewcommand\UrlFont{\color{blue}\rmfamily}
-%\urlstyle{rm}
+\renewcommand\UrlFont{\color{blue}\rmfamily}
+\urlstyle{rm}
 %
 \begin{document}
 %
-\title{Exploring the effects of baseline schema-based non-monotonic extensions of mined rules for link prediction over Knowledge Graphs}
+% \title{Exploring the effects of baseline schema-based non-monotonic extensions of mined rules for link prediction over Knowledge Graphs}
+\title{Extending Mined Rules with Non-monotonic, Schema-based Exceptions for Link Prediction over Knowledge Graphs}
 %
-\titlerunning{Schema-based Non-monotonic Extensions of Mined Rules}
+\titlerunning{Extending Mined Rules with Non-monotonic Schema-based Exceptions}
 % If the paper title is too long for the running head, you can set
 % an abbreviated paper title here
 %
@@ -41,30 +45,41 @@
 \maketitle              % typeset the header of the contribution
 %
 \begin{abstract}
-Knowledge Graphs (KGs) are widely used relational data structures that allow both human and machine readability, but are inherently incomplete. Recent studies have explored the benefits of mining and applying inference rules to suggest new relations among existing entities to extend a KG, a task known as Link Prediction (LP). While rules have the advantage of transparency compared to black-box machine learning methods, it has been noted how the commonly used Horn Rules suffer from a lack of expressivity. Additionally, even if often originally available, semantic information of KGs is rarely leveraged when approaching LP, as mining algorithms usually focus only entity-level triples. This is also reflected on standard LP metrics, which compute a ranking of test triples with respect of other predictions, but ignore the semantic correctness of the predictions themselves, possibly providing a skewed representation of the real-world applicability of such methods.
+% Knowledge Graphs (KGs) are widely used relational data structures that allow both human and machine readability, but are inherently incomplete. Recent studies have explored the benefits of mining and applying inference rules to suggest new relations among existing entities to extend a KG, a task known as Link Prediction (LP). While rules have the advantage of transparency compared to black-box machine learning methods, it has been noted how the commonly used Horn Rules suffer from a lack of expressivity. Additionally, even if often originally available, semantic information of KGs is rarely leveraged when approaching LP, as mining algorithms usually focus only entity-level triples. This is also reflected on standard LP metrics, which compute a ranking of test triples with respect of other predictions, but ignore the semantic correctness of the predictions themselves, possibly providing a skewed representation of the real-world applicability of such methods.
+Link prediction (LP) is the task of expanding information in Knowledge Graphs (KGs) by suggesting new relations among their entities. Mining and applying inference rules for this task can be used, with competitive performances, to maintain transparency w.r.t. machine learning methods for LP which are more likely to behave as black-boxes due to the usage of embeddings. Yet, these rule-based methods suffer from a lack of expressivity and  rarely leverage semantic information of the KG, focusing instead on entity-level triples. This exposes the newly predicted triples  to the risk of being semantically inconsistent.
+% Standard, rank-based, metrics cannot easily capture this behavior, possibly providing a skewed representation of the real-world applicability of such methods.
 
-In this work, we studied the effect of extending rule expressivity with non-monotonicity: leveraging schema information, we automatically define exception cases based on the predicted relation, potentially stopping the rule from triggering and producing semantically incorrect facts. We showed that applying such exceptions at single-rule level (thus ignoring between-rule interactions) allows to substantially reduce the number of inconsistent triples, with respect to the considered restrictions, at the cost of a limited increase in inference time. We additionally show that rank-based LP metrics are influenced by the different rule expressivity in a limited way, further suggesting the need of alternative metrics that can take into account the semantic quality of predicted triples.
+In this work, we study the effect of extending rule expressivity with non-monotonicity: leveraging schema information, we extend mined rules with exception cases, in order to make them more consistent and semantically accurate. We automatically define exception cases based on the predicted relations, pruning the search space when materializing any given rule that could produce semantically incorrect facts.
 
-\keywords{Knowledge Graphs  \and Link Prediction \and Rule mining \and Non-monotonic.}
+We evaluate our approach by analyzing the quality of the materialized triples and the additional computing time required, and we further verified the change in rank-based LP metrics, starting from rule sets mined by two rule miners.
+
+Our results suggest that the semantic quality of mined rules varies depending on the level of curation and schema-complexity of the KG. Further, we show that applying exceptions at single-rule level (thus ignoring between-rule interactions) allows to substantially reduce the number of inconsistent triples in all cases, at the cost of a limited increase in inference time. We finally report that rank-based LP metrics are influenced by the different rule expressivity in a limited way, further suggesting the need for the integration of alternative metrics that can take into account the semantic quality of predicted triples.
+% In this work, we studied the effect of extending rule expressivity with non-monotonicity: leveraging schema information, we automatically define exception cases based on the predicted relation, potentially stopping the rule from triggering and producing semantically incorrect facts. We showed that rules mined both from curated and automatically generated Knowledge Graphs might result in rules with inconsistent predictions with the latter being more prominent; and that applying exceptions at single-rule level (thus ignoring between-rule interactions) allows to substantially reduce the number of inconsistent triples in both cases, at the cost of a limited increase in inference time. 
+
+% We additionally show that rank-based LP metrics are influenced by the different rule expressivity in a limited way, further suggesting the need for the integration of alternative metrics that can take into account the semantic quality of predicted triples.
+
+%%%%%%%%%
+
+% Link prediction (LP) is the task of expanding information in Knowledge Graphs (KGs) by suggesting new relations among their entities. Recent studies have explored the benefits of mining and applying inference rules for this task, as they have the advantage of transparency compared to black-box machine learning methods, while maintaining competitive performances. Nevertheless, it has been noted how the commonly used Horn Rules suffer from a lack of expressivity, and that rule miners rarely leverage semantic information of KGs, even if originally available, focusing instead on entity-level triples.
+% Thus, newly predicted triples are exposed to the risk of being semantically inconsistent. Standard, rank-based, metrics 
+
+\keywords{Knowledge Graphs  \and Link Prediction \and Rule mining \and Non-monotonic reasoning.}
 \end{abstract}
 %
 %
 %
 \section{Introduction}
-In recent years, Knowledge Graphs (KGs) \cite{hogan_knowledge_2022} have attracted interest due to  being inherently readable both from humans and machines, allowing both to encode expert knowledge and being easily processed algorithmically. Their usage spans from industrial applications \cite{tang_exploring_2023,deng_research_2022,han_construction_2022} to shareable scientific repositories \cite{himmelstein_systematic_nodate,jaradeh_open_2019,dessi_cs-kg_2022}, and, with the recent rise of Large Language Models, they have gathered further interest as means to ground the generation process with reliable facts \cite{procko_graph_2024}.
+In recent years, Knowledge Graphs (KGs) \cite{hogan_knowledge_2022} have attracted interest due to  being inherently readable both from humans and machines, allowing both to encode expert knowledge and being easily processed algorithmically. Their usage spans from industrial applications \cite{tang_exploring_2023,deng_research_2022,han_construction_2022} to shareable scientific repositories \cite{himmelstein_systematic_nodate,jaradeh_open_2019,dessi_cs-kg_2022}, and, with the recent rise of Large Language Models, they have gathered further interest as means to ground the generative process with reliable facts \cite{procko_graph_2024}. Despite this, KGs are often incomplete, meaning that they do not (and often cannot) capture all the facts relevant to their domain fields: they can miss information about individuals, or relations that connect them. KGs' incompleteness stems not only from imperfections in data extraction and expert curation but also from the simple fact that new knowledge is constantly being discovered, and methods able to suggest missing facts might even `discover' new knowledge. The task of KG Completion aims at integrating such incompleteness. Particularly, Link Prediction (LP), aims at predicting missing links (edges) that are likely to be true in the context of the KG.
 
-Nonetheless, KGs are often incomplete, meaning that they do not (and often cannot) capture all the facts relevant to their domain fields: they can miss information about individuals, or relations that connect them. 
-This incompleteness often stems from the fact that KGs are automatically generated from data or compiled by experts, but it might also be due to new facts not being known. KG incompleteness hence implies that methods able to suggest missing facts might even `discover' new knowledge. The task of KG Completion, and specifically of Link Prediction (LP), aims at predicting missing links (edges) that are likely to be true in the context of the KG. 
+Among the techniques used for LP, Rule Mining (RM) \cite{harth_fast_2020,meilicke_anytime_2024} has found renewed interest for being both more easily human-readable compared to subsymbolic methods like KG embeddings \cite{wang_knowledge_2017} and Graph Neural Networks \cite{ye_comprehensive_2022}, while at the same time showcasing competitive performances. Most RM methods involve finding and extracting patterns in the data, which usually take the shape of paths connecting pairs of entities, for example the rule  $childOf(X, Y),$ $ bornIn(Y,C) \rightarrow bornIn(X,C)$, i.e. suggesting that children are often born in the same city of their parents, represents a path of edges connecting x,y,c and x again. Despite being closer to symbolic methods, RM algorithms often fail to leverage the semantic information that might come with the KG, focusing instead on frequent patterns. For example, given the above rule, and the query (virginiaWoolf, bornIn, ?) , the rule will be applied for any available matching body, and is certain to introduce inconsistencies given that her parents were born in different cities (London and Calcutta), while including information about the functionality of `bornIn' would at least highlight a possible issue. This is only partially captured by standard LP metrics, which are computed from a ranking of predictions given a `silver-standard' test set \cite{paulheim_knowledge_2016}, but it is likely to reduce the applicability of LP solutions in the practical case: while inconsistent triples from the same rule might have a limited effect on ranking metrics, once materialized they would require to repair the knowledge base.
 
-Among the techniques used for LP, Rule Mining (RM) \cite{meilicke_anytime_2024,harth_fast_2020} has found a renewed interest for being both more easily human-readable compared to subsymbolic methods like KG embeddings \cite{wang_knowledge_2017} and Graph Neural Networks \cite{ye_comprehensive_2022}, while at the same time showcasing competitive performances. Most RM methods involve finding and extracting patterns in the data, which usually take the shape of closed paths connecting pairs of entities. Nonetheless, despite being closer to symbolic methods, RM algorithms often fail to leverage the semantic information that might come with the KG, focusing instead on frequent patterns.
+% Some previous work suggested the potential of extending RM systems with rule exceptions, taking a non-monotonic approach \cite{gad-elrab_exception-enriched_2016,tran_towards_2017,lisi_combining_nodate}, exceptions were obtained by refining the rule sets based on the available data, but still without focus on semantics.
+Prior research has investigated extending RM systems with rule exceptions, effectively adopting a non-monotonic approach \cite{gad-elrab_exception-enriched_2016,tran_towards_2017,lisi_combining_2017}. However, these methods typically derive exceptions by refining rule sets based solely on data distribution, leaving the semantic layer unaddressed.
 
-For example, given the rule $parent(X, Y), bornIn(X,C) \rightarrow bornIn(Y,C)$, it is likely to hold a sufficient degree of success. In the default RM application, given a (s, bornIn, ?) query, the rule will be applied for any available matching body, is certain to introduce inconsistencies if paired with the the possibility of parents coming from different cities, while including information about the functionality of `bornIn' would at least highlight a possible issue.
+In this work, we take a similar approach, but we propose to use information present in ontological schemas of KGs to extend a set of mined rules with semantics-aware baseline exception, hypothesizing this will increase the semantic validity of predictions.
+Specifically, given a set of semantic restrictions and a mined rule set, our approach automatically appends relevant exception conditions to the rules. These conditions act as a safeguard during the application phase, preventing the triggering of rules that would result in trivial violations of the ontology. We then compare the semantic validity of triples predicted by the original and extended rule sets to evaluate the trade-off involved in preventing trivial rule-based violations. This comparison is conducted on three large-scale KGs representing varying domains and curation levels: YAGO4.5, a general-purpose KG derived from Wikidata with a highly curated schema based on schema.org; NELL995, an automatically generated KG with a rigid, ad-hoc schema; and Hetionet, a domain-specific KG featuring a smaller, high-level ontology.
 
-This is only partially captured by standard LP metrics, which are computed from a ranking of predictions given a `silver-standard' test set \cite{paulheim_knowledge_2016}, but it is likely to reduce the applicability of LP solutions in the practical case: while inconsistent triples from the same rule might have a limited effect on ranking metrics, once materialized they would require to repair the knowledge base.
-
-Some previous work suggested the potential of extending RM systems with rule exceptions, taking a non-monotonic approach \cite{gad-elrab_exception-enriched_2016,tran_towards_2017,lisi_combining_2017}. In this work, we study the effect of extending a set of mined rules with semantic-aware baseline exception conditions: given the set of semantic restrictions defined in KG-related ontologies, we use them to stop the activation of rules when they would result in a trivial violation of such restrictions. 
-
-We then compare the original and extended set of rules on semantic validity of predicted triples, to explore the trade-off derived by stopping violations trivially caused by rules: our result show that applying exceptions at single-rule level (i.e. without considering rule-rule interaction) already allows for a substantial decrease in the number of inconsistent triples predicted, with a limited increase in computational time. Additionally, while we do not focus on optimizing benchmark predictive performance, we show preliminary results suggesting that standard rank-based metrics are not heavily influenced by the change in expressivity of the rule sets, posing an argument in favor of the need for integrating such metrics with other, semantic-oriented, tools.
+Our results show that the semantic accuracy of the mined rules varies substantially depending on the quality of the input KG and its curation level. Specifically, we show that applying exceptions at single-rule level (i.e. without considering rule-rule interaction)  results in a substantial decrease in the number of inconsistent triples predicted with a limited increase in computational time in all three conditions, with the highest benefit in less-curated KGs. Additionally, while we do not focus on optimizing  predictive performance, we show that standard rank-based metrics are not heavily influenced by the change in expressivity of the rule sets, revealing the need for integrating such metrics with more semantic-oriented evaluations.
 
 \section{Related Work}
 
@@ -77,59 +92,45 @@ Non-monotonic extensions of rule-sets have also been proposed in the previous ye
 Finally, using t-box or ontological knowledge to improve link prediction has been the subject of study of various neuro-symbolic approaches: \cite{jain_improving_2021} and 
 \cite{hubert_treat_2024} use schema-based inconsistencies to generate negative samples for KGEs or to directly operate in the training loss, \cite{wu_learning_2022} include type information in the rule learning process, \cite{wiharja_schema_2020,wang_schema-aware_nodate} focus on \textit{schema correct} triples to iteratively learn LP methods alternating rule mining and KGEs learning.
 
-\section{Preliminaries}
-\subsection{Basic definitions}
+\section{Problem Definition}
+In this section, we describe the basic terminology and concepts used in the rest of the discussion.
+
+\subsection{Basic Definitions}
+\subsubsection{Terminology.}
 Our input is defined as a tuple $(\mathcal{G},\mathcal{O},\mathcal{IR})$ where:
 \begin{itemize}
-    \item $\mathcal{G}$ is a knowledge graph: $$\mathcal{G} = (\mathcal{E}, \mathcal{R}, \mathcal{T})$$ where $\mathcal{E}$ is the (finite) set of entities (nodes), $\mathcal{R}$ is the (finite) set of relation types , and $\mathcal{T} \subseteq \mathcal{E} \times \mathcal{R} \times \mathcal{E}$ is the set of known triples (edges).
-    \item $\mathcal{O}$ is a set of ontological restrictions, defined in a given Description Logic formalism. 
+    \item $\mathcal{G}$ is a knowledge graph: $$\mathcal{G} = (\mathcal{E}, \mathcal{R}, \mathcal{T})$$ where $\mathcal{E}$ is the (finite) set of entities (nodes), $\mathcal{R}$ is the (finite) set of relation types, and $\mathcal{T} \subseteq \mathcal{E} \times \mathcal{R} \times \mathcal{E}$ is the set of known triples (edges). From the example of the previous section, (virginiaWoolf, childOf, leslieStephen), (leslieStephen, bornIn, London) are facts in the KG.
+    \item $\mathcal{O}$ is a set of ontological restrictions, defined in a given Description Logic formalism. (bornIn, subClassOf, FunctionalProperty) is an example of such restriction.
     \item $\mathcal{IR}$ is a set of inference rules of the type $$\bigwedge_{i=0}^{n} (S_i, b_i, O_i) \rightarrow (X, h , Y)$$ where $X,Y \in \{S_i\}\cup{\{O_i\}}$, $b_i,h \in \mathcal{R}$ and $S_i,O_i$ are interpreted as variables to be grounded with elements of $\mathcal{E}$ such that given a variable substitution $\theta$, $(S_i, b_i, O_i)_{/\theta} \in \mathcal{G}$. 
     
     In the specific scenario we consider, the substiuution requires each variable to get a distinct grounding, i.e. $S_{i/\theta} \not= S_{j/\theta}\quad\forall \quad i \not=j$ and $S_{i/\theta} \not=O_{j/\theta}\quad if\quad S_i \not=O_j$.
 
     IR can be also seen as \textit{Horn rules}, i.e. of the type $B \rightarrow H$, where $B$ is a conjunction of atoms and $H$ is a single atom. In this work, we consider atoms as being \textit{triple patterns} of the type $(V1,p,V2)$, where the relation is known, while subject and objects are variables.
+
+    Following the example, $childOf(X, Y), bornIn(Y,C) \rightarrow bornIn(X,C)$ is an example of such rule, the body can be grounded by \\$\theta: (X= virginiaWoolf, Y= leslieStephen, C = London)$, and would predict the head: $(virginiaWoolf, bornIn, London)$.
 \end{itemize}
 
 % $$\bigwedge_{i=1}^{n} (S_{i}, b_i, O_i) \rightarrow (S_x, h , O_y); x,y \le n$$
 
-\subsection{Link prediction}\label{sec:LP}
+%\subsection{Link Prediction}\label{sec:LP}
+\subsubsection{Link Prediction.}
 Link Prediction (LP) refers to the task of predicting missing links in the graph. More precisely, the goal is to infer plausible triples $(s, r, o)$ that are not present in $\mathcal{T}$ but are likely to hold.
 
 LP is usually tested via the \textit{silver-standard} method: a set of triples from the original graph is removed, and the LP methods are tasked to rank each removed triple with respect of its possible corruptions (random substitutions of its components), where ideally the test triple is ranked among the most likely ones. 
 In the context of rule mining for link prediction, most rule-sets $\mathcal{IR}$ assign a \textit{confidence} value to each rule. So, given a test triple $(s,r,o)$, all rules that allow to infer $(s,r,?)$ are queried, ranking the predicted $(s,r,o')$ by an aggregation of the confidence scores of the rules which can correctly predict each triple. The same can be done for $(?,r,o)$ ranking predicted $(s',r,o)$.
 
-\subsection{Rule mining}
+\subsubsection{Rule Mining.}
 
-% Rule Mining (RM) refers to the task of constructing a set of inference rules, usually of the Horn type ($B \rightarrow H$), paired with a measure of their quality. 
-% Important definitions:
-% \begin{itemize}
-%     \item Closed rule (CR): is a rule where every atom appear
-%     % $$\bigwedge_{i=1}^{n} (A_{i-1}, b_i, A_i) \rightarrow (A_0, h , A_n)$$ a common type of rule, \textit{relatively easy} to mine as it involves looking at closed paths within the graph. 
-%     \item Valid grounding: a variable substitution $\theta$ s.t. given a triple pattern tp: $(V1, p, V2)$, $$tp_{/\theta}: (v1, p, v2) \in \mathcal{G}$$
-%     \item Body(head) grounding: a variable substitution s.t. all triples in the body(head) are validly grounded
-%     \item Support (given a rule r): number of head groundings already in $\mathcal{G}$
-%     \item Standard confidence (given a rule r): number of body groundings for which head is also grounded
-% \end{itemize}
-
- Rule Mining (RM) is the task of constructing a set of inference rules, typically of the Horn type (B→H), each associated with a measure of its quality.
+Rule Mining (RM) is the task of constructing a set of inference rules, typically of the Horn type (B→H), each associated with a measure of its quality.
 
 A specific and common type is the Closed Rule (CR), which is a rule where every atom appears, often expressed as a sequence of the type: $$\bigwedge_{i=1}^{n} (A_{i-1}, b_i, A_i) \rightarrow (A_0, h , A_n)$$ 
 These are considered relatively easy to mine as they involve looking for closed paths within the graph structure.
 
-Central to mining and materializing these rules is the concept of \textit{groundings}: a grounding  is a variable substitution $\theta$ that maps a given triple pattern $tp: (V1, p, V2)$, into a syntactically correct triple, i.e. both V1 and V2 are mapped to elements of $\mathcal{E}$.
+Central to mining and materializing these rules is the concept of \textit{grounding}: a grounding  is a variable substitution $\theta$ that maps a given triple pattern $tp: (V1, p, V2)$, into a syntactically correct triple, i.e. both V1 and V2 are mapped to elements of $\mathcal{E}$.
     % the triple $tp_{/\theta}: (v1, p, v2) $ resulting from applying the variable substitution, is such that $tp_{/\theta} \in \mathcal{G}$
 In the following section, we refer to Body Groundings (resp. Head Grounding) as a variable substitutions $\theta$ for which all triple patterns in the body (head) respectively, are grounded.
     
-
-  
-
-% The quality of a rule (r) is typically measured using:
-
-%     Support: This is defined as the number of head groundings already present in the knowledge graph (G).
-
-%     Standard Confidence: This measures the rule's precision and is calculated as the number of body groundings for which the head is also grounded.
-
-\subsection{Consistency and violations}
+\subsubsection{Semantic Consistency of a KG and Violations.}
 
 In general, a KG is consistent if $\mathcal{G} \cup \mathcal{O} \not\models \bot$. 
 
@@ -148,32 +149,96 @@ Examples with the functional restriction:
     \item \textit{out-rule violation}: two different rules can trigger for the same query (s,p,?): 
     $(X,parent,Y), (X,bornIn,C) \rightarrow (Y, bornIn, C) $ and\\ $(Y,livesIn,C) \rightarrow (Y, bornIn , C)$. As the bodies are unrelated, this means they could trigger, resulting in different predictions.
 \end{itemize} 
-\section{Baseline non-monotonic extension of rules}
-We focus on the effect of removing in-rule and in-graph violations by extending the original $\mathcal{IR}$ non-monotonically, i.e. by defining exception patterns that, if matched, will stop the application of the rule.
 
-\subsection{Research question}
+\subsection{Research Question}
 
 We investigate the following research question:
 
 \textit{\textbf{RQ:} Is a `baseline' non-monotonic repair of in-rule and in-graph conflict sufficient to avoid inconsistencies in predicted triples, and what is the trade-off on LP and computational performance?}
+\section{Non-monotonic extension of rules}
+We focus on the effect of removing in-rule and in-graph violations by extending the original $\mathcal{IR}$ non-monotonically, i.e. by defining exception patterns that, if matched, will stop the application of the rule.
+
 
 \subsection{Approach}
-\paragraph{Baseline exceptions} Given $\{\mathcal{IR,O}\}$ we generate $\mathcal{IR}^{nm}$, a non-monotonic extension of the rule set, where the exceptions are sufficient conditions for in-rule and in-graph violations. Table \ref{tab:ijp} collects the list of inconsistency patterns adapted given the set of property restrictions we focus on. For this study, we focus on three types of ontological restrictions: functionality,
+\paragraph{Baseline exceptions} Given $\{\mathcal{IR,O}\}$ we generate $\mathcal{IR}^{nm}$, a non-monotonic extension of the rule set, where the exceptions are sufficient conditions for in-rule and in-graph violations. Table \ref{tab:ijp} collects the list of inconsistency patterns adapted given the set of property restrictions we focus on: functionality,
 % inverse functionality, 
 domain and range. 
 
-\paragraph{Applying the exceptions} When materializing $\mathcal{G}^{IR^{nm}}$, for each rule \textit{r}:
+\paragraph{Applying the exceptions} When materializing $\mathcal{G}^{IR^{nm}}$, for each rule \textit{$r_i$}:
 \begin{itemize}
-    \item We loop over candidates $e \in \mathcal{E}$ as a substitution of the first variable $X$.
-    \item If in-graph exceptions are violated, activation further search for the variable is halted.
+    \item We iterate over candidates $e \in \mathcal{E}$ as a substitution of the first variable $X$.
+    \item If in-graph exceptions are violated, further search for the remaining variables is halted.
     \item A path is recursively searched from  $e$ in order to find a valid $\theta$. If $\exists \theta: body(r)_{/\theta} \in \mathcal{G}$ ,  $head(r)_{/\theta} \not\in \mathcal{G}$ and $\mathcal{G} \cup \mathcal{O} \not\models exception(r)_{/\theta}$, the rule triggers and $head(r)_{/\theta}$ is added to $\mathcal{G}^{IR^{nm}}$.
     \item Otherwise, the specific rule activation is skipped.
 \end{itemize}
 
-We implement this with a depth-first search approach similar to \cite{meilicke_anytime_2024}, and in a similar way, we require different variables to have different groundings. 
+Following \cite{meilicke_anytime_2024}, we implement this strategy as a depth-first search approach. Similarly to them, we require different variables to have different groundings (`object identity'). 
+%%%%%%%%%%%%%%%%%%
+% Pseudocode
+%%%%%%%%%%%%%%%%%%%
+
+\newcommand{\GIRnm}{\mathcal{G}^{IR^{nm}}}
+\newcommand{\G}{\mathcal{G}}
+\newcommand{\E}{\mathcal{E}}
+\newcommand{\Oset}{\mathcal{O}}
+
+% \vspace{1em}
+\begin{algorithm}[H]
+\SetAlgoLined
+\DontPrintSemicolon
+\SetKwInOut{Input}{Input}
+\SetKwInOut{Output}{Output}
+\SetKw{Break}{break}
+
+\Input{Graph $\G$, Set of Rules $R$, Candidates $\E$, Ontology $\Oset$}
+\Output{Materialized Graph $\GIRnm$}
+
+\BlankLine
+Initialize $\GIRnm \leftarrow \G$\;
+\BlankLine
+
+\ForEach{rule $r_i \in R$}{
+    \ForEach{candidate $e \in \E$}{
+        \BlankLine
+        $valid \leftarrow True$\;
+        $possiblePredictions \leftarrow \emptyset$\;
+        \BlankLine
+        
+        \If{in-graph violation detected for $e$}{
+            $valid \leftarrow False$\;
+            \textbf{continue}\;
+        }
+        
+        \BlankLine
+        \ForEach{substitution $\theta$ found via DFS($r_i$, start=$e$)}{
+            \BlankLine
+            \If{$body(r_i)_{/\theta} \subseteq \G$ \textbf{and} $head(r_i)_{/\theta} \notin \G$}{
+                \BlankLine
+                \eIf{$\G \cup \Oset \models exception(r_i)_{/\theta}$}{
+                    $valid \leftarrow False$\;
+                    \Break \tcp*{Stop DFS immediately}
+                }{
+                    Add $head(r_i)_{/\theta}$ to $possiblePredictions$\;
+                }
+            }
+        }
+        
+        \BlankLine
+        \If{$valid$ \textbf{and} $possiblePredictions \neq \emptyset$}{
+            $\GIRnm \leftarrow \GIRnm \cup possiblePredictions$\;
+        }
+    }
+}
+\Return{$\GIRnm$}
+
+\caption{Materialize $\mathcal{G}^{IR^{nm}}$}
+\label{alg:materialize}
+\end{algorithm}
+%
+%%%%%%%%%%%%%%%%%%
 \begin{table}[h]
     \centering
-    \caption{Potential violations  $r: body(r) \rightarrow head(r), head(r) =(A_x, h, A_y)$ assuming a valid substitution $\theta$ for r.}
+    \caption{Violations  $r: body(r) \rightarrow head(r), head(r) =(A_x, h, A_y)$ assuming a valid substitution $\theta$ for r.}
     \begin{tabular}{|l|l|}
         \hline
         \textbf{Property} & \textbf{Condition for exception} \\
@@ -192,15 +257,19 @@ We implement this with a depth-first search approach similar to \cite{meilicke_a
     \label{tab:ijp}
 \end{table}
 
+\paragraph{Example.}  Recalling and extension of the above example, we might have the following triples in the KG: (virginiaWoolf, childOf, leslieStephen), (virginiaWoolf, childOf, juliaSephen), (leslieStephen, bornIn, London), (juliaSephen, bornIn, Calcutta), (virginiaWoolf, almaMater, kingsCollege). Standard rule mining materialization would activate rule $childOf(X, Y), bornIn(Y,C) \rightarrow bornIn(X,C)$ and predict both (virginiaWoolf, bornIn, London) and (virginiaWoolf, bornIn, Calcutta), which are mutually inconsistent. When the baseline exception for functionality is included, it will trigger once the second grounding is found, stopping any further search\footnote{in this case, no further groundings would be found, but for other types of predicates it might be the case}. Candidate predictions will be rejected, as the rule is `unsafe'. At this point a lower confidence rule might trigger, i.e.  $almaMater(X, U), $ $locatedIn(U,C) \rightarrow bornIn(X,C)$, which will only materialize (virginiaWoolf, bornIn, London). 
 \subsection{Evaluation}
 % As our method can currently only work for ungrounded rules, we cannot leverage the full capabilities of the methods, and thus do not aim at strictly improving benchmark metrics, nor intend to perform a direct comparison between models. Our focus is instead on changes in the semantic quality of predicted triples between the monotonic and non-monotonic version of rule sets, the cost in computational time and the residual effect of out-rule violations. Nonetheless, for completeness, we also include results from standard rank-based LP metrics, which should be intended as `validation' against loss of performance between the rule-sets versions, and not as an objective benchmarking result.
 
-The current limitation of our method to ungrounded rules prevents the leveraging of the full capabilities of the existing techniques. Consequently, we are not focused on strictly improving standard benchmark metrics or conducting a direct comparative analysis between models. Instead, our research objectives are concentrated on analyzing changes in the semantic quality of predicted triples between the monotonic and non-monotonic rule sets, and evaluating the added computational time cost and the residual effect of out-rule violations.
+% The current limitation of our method to ungrounded rules prevents the leveraging of the full capabilities of the existing techniques. Consequently, we are not focused on strictly improving standard benchmark metrics or conducting a direct comparative analysis between models. 
 
-For thoroughness, we report standard rank-based LP metrics. These results are included solely for validating against performance loss between the rule-set versions and should not be interpreted as an objective benchmarking result. 
+Given our research objectives, our evaluation approach is concentrated on analyzing changes in the semantic quality of predicted triples between the monotonic and non-monotonic rule sets, and evaluating the added computational time cost and the residual effect of out-rule violations. Therefore, we do not focus on improving benchmark metrics and additionally, as our method can currently only work for ungrounded rules, we cannot leverage the full capabilities of either of the rule miners, rendering a performance comparison between the two unfeasible.
+ 
+For completeness, we report standard rank-based LP metrics. These results are included solely for validating against performance loss between the rule-set versions and should not be interpreted as an objective benchmarking result. 
 
-\paragraph{Materialization evaluation} Sorting the rules by confidence, we apply them until at least 10\% and 30\% of new triples (with respect to the size of the graph) are materialized, stopping processing after completing the \{rule, entity\} search that surpassed the threshold.
-The full graph and the newly materialized triples are then both loaded in a triple store as separate named graphs. 
+\paragraph{Materialization evaluation.} We rank the rules in descending order of confidence and incrementally materialize the predicted triples. This process continues until the cumulative number of new triples reaches target thresholds of 10\% and 30\% relative to the original graph size. Processing halts upon the completion of the specific rule application that triggers the threshold.
+
+The full graph and the newly materialized triples are then both loaded in a triple store (GraphDB\footnote{\url{https://graphdb.ontotext.com/documentation/10.3/index.html}}) as separate named graphs. 
 For each considered restriction, we then compute the number of new triples that would violate such restriction, and we further compute the total number of new triples that are inconsistent. This is done via SPARQL queries, which can be seen in appendix \ref{sparql}\footnote{We use a RDFS-plus engine, but consider entities as mutually disjoint for functionality matter.}. We additionally report the computational time for performing the materialization in both conditions, the non-monotonic case also including the schema-parsing.
 
 \paragraph{Ranking-based LP metrics}
@@ -216,15 +285,19 @@ LP metrics are usually \textit{ranking metrics}. Given a set of test triples, i.
     \[
     \text{MRR} = \frac{1}{N} \sum_{i=1}^{N} \frac{1}{\text{rank}_i}
     \]
-\end{itemize}
-
-Further, we compute an adapted version of the Sem@k metric, proposed by \cite{hubert_treat_2024}, which checks the number of semantically correct triples within the first k ranked predictions. Originally only defined over domain and range, we extended it to include the considered restrictions.
-\begin{itemize}
-    \item Sem@k:
+     \item Sem@k:
     \[\text{Sem}@K = \frac{1}{|\text{Test}|} \sum_{t \in \text{Test}} \frac{1}{K} \sum_{t' \in \mathcal{S}_q^K} \textit{consistent}(t',\mathcal{G},\mathcal{O})
     \]
-    Where $q$ is a test triple, $\mathcal{S}_q^K$ is the set of ranked top-K predictions for its corruption, and the \textit{consistent} returns true if a given triple is consistent wrt to the KG and related schema, false otherwise.
+    Where $q$ is a test triple, $\mathcal{S}_q^K$ is the set of ranked top-K predictions for its corruption, and the \textit{consistent} returns true if a given triple is consistent wrt to the KG and related schema, false otherwise. This is an adapted version of the Sem@k metric, proposed by \cite{hubert_treat_2024}, which checks the number of semantically correct triples within the first $k$ ranked predictions. Originally only defined over domain and range, we extended it to include the considered restrictions.
 \end{itemize}
+
+
+% \begin{itemize}
+%     \item Sem@k:
+%     \[\text{Sem}@K = \frac{1}{|\text{Test}|} \sum_{t \in \text{Test}} \frac{1}{K} \sum_{t' \in \mathcal{S}_q^K} \textit{consistent}(t',\mathcal{G},\mathcal{O})
+%     \]
+%     Where $q$ is a test triple, $\mathcal{S}_q^K$ is the set of ranked top-K predictions for its corruption, and the \textit{consistent} returns true if a given triple is consistent wrt to the KG and related schema, false otherwise.
+% \end{itemize}
 
 
 %%%%%%%%%%%
@@ -248,7 +321,7 @@ Further, we compute an adapted version of the Sem@k metric, proposed by \cite{hu
 
 \begin{table}[h]
 \centering
-\caption{Materialization metrics for the datasets and rule sets, stopping after the last rule which brings the number of new triples above the threshold of 10\%. `Func', `dom' and `ran' refer to the number of inconsistent triples among the materialized ones according to, respectively functional, domain and range restrictions. For Hetionet, not functional restriction is defined, thus no violations.}
+\caption{Materialization metrics for the datasets and rule sets, stopping after the last rule which brings the number of new triples above the threshold of 10\%. For Hetionet, not functional restriction is defined, thus no violations.}
 \label{tab:mat10}
 \begin{tabular}{l | c c c c c c c}
 \toprule
@@ -256,19 +329,10 @@ Further, we compute an adapted version of the Sem@k metric, proposed by \cite{hu
 \midrule
 Ruleset & \# trig rules & \# triples & func  & dom & ran & tot & time \\
 \midrule
-AnyBURL & 578 & 14.9k & 989 & 184 & 321 & 1441 & 216s \\
+AnyBURL & 578 & 14.9k & 989 & 184 & 321 & 1.44k & 216s \\
 AnyBURL + nmr & 585 & 16.9k & 691 & 0 & 0 & 691 & 11+ 501s \\
-AMIE & 11 & 14.8k & 48 & 3029 & 7621 & 8204 & 4s \\
+AMIE & 11 & 14.8k & 48 & 3.03k & 7.62k & 8.20k & 4s \\
 AMIE + nmr & 36 & 14.6k & 6 & 0 & 0 & 6 & 11+28s \\
-\midrule
-\multicolumn{8}{c}{Hetionet} \\
-\midrule
-Ruleset & \# trig rules & \# triples & func  & dom & ran & tot & time \\
-\midrule
-AnyBURL & 2 & 565k & 0* & 0 & 0 & 0 & 146s \\
-AnyBURL + nmr & 2 & 565k & 0* & 0 & 0 & 0& 0.06+ 177s \\
-AMIE & 2 & 663k & 0* & 26.2k & 0 & 26.2k & 37s \\
-AMIE + nmr & 2 & 637k & 0* & 0 & 0 & 0 &0.06+ 42s \\
 \midrule
 \multicolumn{8}{c}{YAGO4.5-10} \\
 \midrule
@@ -278,6 +342,16 @@ AnyBURL & 35 & 515k & 353 & 0 & 0 & 353 & 499s \\
 AnyBURL + nmr & 19 & 500k & 0 & 0 & 0 & 0 & 103+120s \\
 AMIE & 4 & 501k & 49 & 0 & 0 & 49 & 18s \\
 AMIE + nmr & 3 & 499k & 0 & 0 & 0 & 0 & 91+15s \\
+\midrule
+\multicolumn{8}{c}{Hetionet} \\
+\midrule
+Ruleset & \# trig rules & \# triples & func  & dom & ran & tot & time \\
+\midrule
+AnyBURL & 2 & 565k & 0* & 0 & 0 & 0 & 146s \\
+AnyBURL + nmr & 2 & 565k & 0* & 0 & 0 & 0& 0.06+ 177s \\
+AMIE & 2 & 663k & 0* & 26.2k & 0 & 26.2k & 37s \\
+AMIE + nmr & 2 & 637k & 0* & 0 & 0 & 0 &0.06+ 42s \\
+
 
 \bottomrule
 \end{tabular}
@@ -290,7 +364,7 @@ AMIE + nmr & 3 & 499k & 0 & 0 & 0 & 0 & 91+15s \\
 
 \begin{table}[h]
 \centering
-\caption{Materialization metrics for the datasets and rule sets, stopping after the last rule which brings the number of new triples above the threshold of 30\%. `Func', `dom' and `ran' refer to the number of inconsistent triples among the materialized ones according to, respectively functional, domain and range restrictions. For Hetionet, not functional restriction is defined, thus no violations.}
+\caption{Materialization metrics for the datasets and rule sets, stopping after the last rule which brings the number of new triples above the threshold of 30\%. For Hetionet, no functional restriction is defined, thus no violations.}
 \label{tab:mat30}
 \begin{tabular}{l | c c c c c c c}
 \toprule
@@ -299,18 +373,9 @@ AMIE + nmr & 3 & 499k & 0 & 0 & 0 & 0 & 91+15s \\
 Ruleset & \# trig rules & \# triples & func  & dom & ran & tot & time \\
 \midrule
 AnyBURL & 1047 & 42.8k & 14.5k & 706 & 591 & 15.3k & 416s \\
-AnyBURL + nmr & 1334 & 43.6k & 1989 & 0  & 0 & 1.99k & 11+ 1128s \\
+AnyBURL + nmr & 1334 & 43.6k & 1.99k & 0  & 0 & 1.99k & 11+ 1128s \\
 AMIE & 51 & 42.7k & 89 & 11.4k & 11.9k & 17.5k & 17s \\
 AMIE + nmr & 84 & 42.7k & 6 & 0 & 0 & 6& 11+ 65s \\
-\midrule
-\multicolumn{8}{c}{Hetionet} \\
-\midrule
-Ruleset & \# trig rules & \# triples & func  & dom & ran & tot & time \\
-\midrule
-AnyBURL & 4 & 1.15M & 0* & 0 & 0 & 0 & 1609s \\
-AnyBURL + nmr & 4 & 1.15M & 0* & 0 & 0 & 0 &0.06+2528s \\
-AMIE & 3 & 920k & 0* & 26.2k & 0 & 26.2k& 73s \\
-AMIE + nmr & 3 & 894k & 0* & 0 & 0 & 0& 0.06+93s \\
 \midrule
 \multicolumn{8}{c}{YAGO4.5-10} \\
 \midrule
@@ -320,48 +385,22 @@ AnyBURL & 175 & 980k & 51.1k & 2.07k& 0 & 52.5k & 2340 \\
 AnyBURL + nmr & 218 & 988k & 22 & 0 & 0 & 22 & 96 + 1543s \\
 AMIE & 47 & 1.19M & 1.52k & 112 & 0 & 1.6k & 273s \\
 AMIE + nmr & 41 & 1.28M & 8 & 0 & 0 & 8 & 113 + 273s \\
+\midrule
+\multicolumn{8}{c}{Hetionet} \\
+\midrule
+Ruleset & \# trig rules & \# triples & func  & dom & ran & tot & time \\
+\midrule
+AnyBURL & 4 & 1.15M & 0* & 0 & 0 & 0 & 1609s \\
+AnyBURL + nmr & 4 & 1.15M & 0* & 0 & 0 & 0 &0.06+2528s \\
+AMIE & 3 & 920k & 0* & 26.2k & 0 & 26.2k& 73s \\
+AMIE + nmr & 3 & 894k & 0* & 0 & 0 & 0& 0.06+93s \\
+
 \bottomrule
 \end{tabular}
 
 
 \end{table}
 %%%%%%%%%%%
-\section{Experiments}
-
-\subsection{Experimental setup}
-In principle, our method can be applied on any rule set consisting of closed path rules. To perform an empirical evaluation, we study the effects of baseline non-monotonic extensions of rules mine using two highly performing rule miners, AnyBurl and AMIE. As we the methods mine different type of rules and with different criteria, we do not aim to directly compare the two intending instead to evaluate the effect of non-monotonic extensions on rule set of different types. We thus use the following settings:
-\begin{itemize}
-    \item AnyBURL: only cyclic rules, runtime 1000s, min confidence: 0.1, min support: 2, rule length 3 body atoms.
-    \item AMIE3: min pca confidence: 0.1, min confidence: 0.1, min support: 2, rule length 2 body atoms.
-\end{itemize}
-
-With AMIE, we keep the max length a 2 for performance reasons, as it performs a full search even on large KGs like the ones we analyze. Despite the trade-off, in this way we obtain closed path rules which are not strictly cyclic, and additionally we can exploit the usage of pca confidence offered by default by the miner.
-
-We extract rules from the following knowledge graphs, which are selected as they come with a defined schema:
-
-\begin{itemize}
-    \item NELL995 \cite{xiong_deeppath_2017}, a benchmark knowledge base completion dataset based on the Never-Ending Language Learning (NELL) system.
-    \item Hetionet \cite{himmelstein_systematic_nodate} a large, heterogeneous biomedical knowledge graph that integrates data from a collection public databases to connect various entities like genes, compounds, and diseases.
-    \item YAGO4.5-10: we build a link-prediction oriented version of YAGO4.5 \cite{suchanek_yago_2024}, following the same approach of the previous YAGO3.10 \cite{dettmers_convolutional_2018}: we maintain only a-box triples that involve entities appearing themselves in at least 10 other similar triples. YAGO4.5 is a general-purpose knowledge graph, which combines entity data from Wikidata with a cleaned, logic-consistent taxonomy primarily derived from Schema.org.
-\end{itemize}
-
-When computing standard LP metrics, we use the max-aggregation approach for matching rules: i.e. sorting the predictions in lexicographic order according to the confidence of the rules bringing such predictions. While we are aware of its practical limitations\cite{ott_safran_2021,ott_rule-based_2023}, it allows to narrow the focus on the single rules, which better fits our objective of seeing the effect of extending them with baseline exceptions.
-%%%%%%%%
-\subsection{Results}
-
-Tables \ref{tab:mat10} and \ref{tab:mat30} report the results for the materialization at thresholds of, respectively 10\% and 30\% new triples.
-
-Results suggest how even high confidence rules can cause violations, albeit rare, both for functional restrictions and domain/range restrictions, with AnyBURL rule set being more likely to cause the former, and AMIE to the latter\footnote{This is not surprising when considering that AMIE3's default operation is under partial completeness assumption, which, given a triple (s,p,o) considers as `false' all (s,p,o') facts not in the data, which is effective for functional properties}. Application of the non-monotonic extensions allows to improve consistency in in all cases, and seems to be particularly effective for the domain/range restrictions, consistently removing them. This generally comes at an expense in processing time, both as it requires parsing the schema, and for further processing of exception conditions. Nonetheless, in some cases (YAGO both at 10\% and 30\%) we notice a reduction of rule materialization time, likely due to highly `applicable' but inconsistency-prone rules being stopped. As an example: in YAGO many rules predicting `gender' are mined, but in the case a candidate subject already has a `gender' relation, all the rules which would likely predict incorrect information, or fail to fully materialize a path, will actually be stopped early, allowing to instead materialize other rules, which might be faster.
-
-% We besides the specific behavior 
-% In general, results also show that inconsistencies start being more noticeable when a larger number of triples is materialized, this is likely due to higher confidence rules being more precise and less widely applicable\footnote{Standard confidence is highest when most predictable heads are already part of the data, thus limiting the number of new triples that the rule will actually produce}, this is in turn reflected   by the effect on standard link prediction metrics.
-
-When observing the scores for hits@k and mrr, the influence of non monotonic extension is not highly noticeable, which we posit is explained by high quality rules being more precise and likely having the most influence at lower values of k, as each rule can provide predict multiple prediction given any (s,p,?) or (?,p,o) query.
-
-
-
-
-
 
 \begin{table}[t]
 \centering
@@ -373,25 +412,98 @@ When observing the scores for hits@k and mrr, the influence of non monotonic ext
 \midrule
 Ruleset & hits@1 & hits@10 & mrr & sem@10 \\
 \midrule
-AnyBURL & 0.1963 & 0.3506 & 0.2517 & 0.983  \\
-AnyBURL + nmr & 0.1971 & 0.3447 & 0.2450 & 1.0 \\
-AMIE & 0.1507 & 0.2377 & 0.1820 & 0.9835  \\
-AMIE + nmr & 0.1510 & 0.2353 & 0.1814 & 1.0\\
+AnyBURL & 0.2172 & 0.3620 & 0.2820 & 0.980  \\
+AnyBURL + nmr & 0.2155 & 0.3550 & 0.2648 & 1.0 \\
+AMIE & 0.1540 & 0.2424 & 0.1857 & 0.9801  \\
+AMIE + nmr & 0.1544 & 0.2390 & 0.1851 & 1.0\\
 \midrule
 \multicolumn{4}{c}{Hetionet} \\
 \midrule
 Ruleset & hits@1 & hits@10 & mrr & sem@10 \\
 \midrule
-AnyBURL & 0.0110 & 0.0582 & 0.0290 & 0.9990 \\
-AnyBURL + nmr & 0.0106 & 0.0573 & 0.0283 & 1.0 \\
-AMIE & 0.0160 & 0.0696 & 0.0346 & 0.9578 \\
-AMIE + nmr & 0.0164 & 0.0690 & 0.0346 & 1.0 \\
+AnyBURL & 0.0180 & 0.0830 & 0.0400 & 0.9990 \\
+AnyBURL + nmr & 0.0169 & 0.0823 & 0.0386 & 1.0 \\
+AMIE & 0.0284 & 0.0995 & 0.0506 & 0.9584 \\
+AMIE + nmr & 0.0275 & 0.0989 & 0.0498 & 1.0 \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+%%%%
+
+\section{Experiments}
+We now proceed to illustrate and analyze the empirical experiment setup for our study.
+\subsection{Experimental setup}
+
+\paragraph{Rule miners} In principle, our method can be applied on any rule set consisting of closed path rules. To perform an empirical evaluation, we study the effects of baseline non-monotonic extensions of rules mined using two highly performing rule miners, AnyBurl and AMIE. As we the methods mine different type of rules and with different criteria, we do not aim to directly compare the two intending instead to evaluate the effect of non-monotonic extensions on rule set of different types. We thus use the following settings:
+\begin{itemize}
+    \item AnyBURL: only cyclic rules, runtime 1000s, min confidence: 0.1, min support: 2, rule length: 3 body atoms.
+    \item AMIE3: min PCA confidence: 0.1, min confidence: 0.1, min support: 2, rule length: 2 body atoms.
+\end{itemize}
+
+With AMIE, we limit the max length of rules at 2 for performance reasons, as it performs a full search even on large KGs like the ones we analyze. Despite the trade-off, in this way we obtain closed path rules which are not strictly cyclic, and additionally  can exploit the usage of PCA confidence offered by default by the rule miner.
+
+\paragraph{Datasets} We extract rules from the following knowledge graphs, which are selected as they come with a defined schema:
+
+\begin{itemize}
+    \item NELL995 \cite{xiong_deeppath_2017}, a benchmark knowledge base completion dataset based on the Never-Ending Language Learning (NELL) system.
+    \item Hetionet \cite{himmelstein_systematic_nodate} a large, heterogeneous biomedical knowledge graph that integrates data from a collection public databases to connect various entities like genes, compounds, and diseases.
+    \item YAGO4.5-10: YAGO4.5 is a general-purpose knowledge graph, which combines entity data from Wikidata with a cleaned, logic-consistent taxonomy primarily derived from Schema.org. We build a link prediction-oriented version of YAGO4.5 \cite{suchanek_yago_2024}, following the same approach of its ancestor YAGO3.10 \cite{dettmers_convolutional_2018}.  We maintain only A-box triples that involve entities appearing themselves in at least 10 other similar triples. 
+\end{itemize}
+
+When computing standard LP metrics, we use the max-aggregation approach for matching rules. In other words, we sort the predictions in lexicographic order according to the confidence of the rules bringing such predictions. While we are aware of its practical limitations~\cite{ott_rule-based_2023,ott_safran_2021}, it allows to narrow the focus on the single rules, which better fits our objective of seeing the effect of extending them with baseline exceptions.
+%%%%%%%%
+\subsection{Results}
+
+
+\paragraph{Materialization results.} Tables \ref{tab:mat10} and \ref{tab:mat30} report the results for the materialization at thresholds of, respectively, 10\% and 30\% new triples. `Func', `dom' and `ran' refer to the number of inconsistent triples among the materialized ones according to, respectively functional, domain and range restrictions, while the appended `nmr' refers to the non-monotonic extensions of the rule sets.
+
+Results suggest how even high confidence rules can cause violations, albeit rare, both for functional restrictions and domain/range restrictions, with AnyBURL rule set being more likely to cause the former, and AMIE to the latter. This is not surprising when considering that AMIE3's default operation is under partial completeness assumption, which, given a triple (s,p,o) considers as `false' all (s,p,o') facts not in the data, which is effective for functional properties. 
+
+The application of the non-monotonic extensions allows to improve consistency in  all cases, and seems to be particularly effective for the domain/range restrictions, consistently removing them. This generally comes at the expense of processing time, both as it requires to parse the schema, and for further processing of exception conditions. Nonetheless, in some cases (YAGO4.5 both at 10\% and 30\%) we notice a reduction of rule materialization time, likely due to highly `applicable' but inconsistency-prone rules being stopped. 
+% As an example: in YAGO4.5, many rules predicting \textit{gender} are mined (Appendix \ref{mined_rules}), but in many cases a candidate subject already has a \textit{gender} relation. All the rules which would  predict further \textit{gender} information would either predict inconsistent facts or fail to find complete paths, will actually be stopped , allowing the algorithm to pass on to other rules.
+For example, in YAGO4.5 many rules predicting gender are mined (Appendix \ref{mined_rules}). However, candidate subjects often already have an existing gender relation. Any rule that would add additional gender information would therefore either generate inconsistent facts or fail to produce a complete derivation path. With the non-monotonic extensions, such rules are stopped early, allowing the algorithm to move on to more promising rules instead.
+
+The number of inconsistent triples from the standard rule sets, relative to the newly materialized ones, varies significantly depending on the dataset. NELL has the larger ratio in both the 10\% and 30\% conditions, while Hetionet and  YAGO4.5 maintain a low percentage of inconsistent triples overall, although   YAGO4.5 reaches a noticeable fraction in the 30\% condition. In the case of Hetionet, only 2 (resp. 4) rules trigger, which have relatively low confidence and a high number of body groundings (see Appendix \ref{mined_rules}). This limits how informative they are, as we further confirm in the following section considering the predictive performance. In the case of YAGO, while a larger number of rules are applied, the number of original inconsistencies remains contained. This suggests that the KG, which is thoroughly curated, allows to mine rules of higher semantic quality, but they can still be improved by the increase in expressivity. In contrast, NELL, that is automatically created with a low curated  ontology, results in a more noisy rule sets. 
+
+\paragraph{Rank-based metrics.} As shown in Table \ref{tab:metrics_part1}, the influence of the non-monotonic extension on hits@k and MRR is negligible. We attribute this to the quality and precision of high-confidence rules, which likely dominate the results at lower $k$ values: since individual rules can generate multiple predictions for (s,p,?) or (?,p,o) queries, they have the most influence with the top ranks. This trend is also reflected in the sem@10 scores, which indicate that the majority of top-10 predictions are semantically correct. However, the standard setting shows a slight decline in Sem@10, suggesting that inconsistencies persist even when deriving predictions from high-confidence rules.
+
+Regarding the low LP performance, particularly e.g. Hetionet with near-zero scores, we identify two primary contributing factors. First, the  dataset is highly coarse, containing a vast number of individuals but few classes and property types. Second, we recall that our configuration restricts the expressivity of the rule miners, i.e. AnyBURL was limited to cyclic rules and AMIE was capped at rules of length  2. While these constraints were necessary to ensure tractability rather than to maximize performance, future work should explore applying non-monotonic extensions to more expressive rule sets.
+
+
+
+
+
+\section{Conclusions}
+
 % \section{Discussion}
 \section{Limitation and Future Work}
+
+As discussed, we limited the settings of the rule miners for the sake of tractability, clearly causing a trade-off in the actual accuracy of performance. Further studies are warranted in order to fully explore the expressivity of the algorithms: while in principle baseline exceptions can be applied to partially-materialized and longer rules, the search may require  optimization.
+
+Additionally, we only included a limited number of restrictions, albeit common, existing in the OWL\cite{dean_owl_2004} standard. A possible research direction would be to expand this to include more complex axioms.
+
+Finally, our method is  dependent on the presence of a schema(ontology), which is not the common setup for link prediction. While we argue for the benefits of including semantic information in the pipeline, an alternative approach would be to automatically extract it from the data, instead of having expert curation in the loop.
 \section*{Appendix}
+
+\subsection*{Consistency queries}
+\subsection*{Mined rules examples}\label{mined_rules}
+We report the first two highest-confidence rules mined in each dataset: \\\textbf{body groundings; std confidence; head <= body}
+\paragraph{YAGO4.5-10 - AnyBURL}
+\begin{itemize}
+    \item 1.82k; 0.994; http://schema.org/gender(X,Y) <= http://yago-knowledge.org/resource/playsIn(X,A), http://yago-knowledge.org/resource/playsIn(B,A), http://schema.org/gender(B,Y)
+    \item 682; 0.987; http://schema.org/gender(X,Y) <= http://schema.org/spouse(A,X), http://schema.org/spouse(B,A), http://schema.org/gender(B,Y)
+\end{itemize}
+\paragraph{YAGO4.5-10 - AMIE3}
+\begin{itemize}
+    \item 1.77k; 0.963; http://schema.org/gender(a,b) <= http://schema.org/gender(e,b), http://schema.org/performer(e,a)
+    \item 14.2k; 0.960; http://schema.org/spouse(a,b) <= http://schema.org/spouse(b,a)
+\end{itemize}
+\paragraph{Hetionet - AMIE3} 
+\begin{itemize}
+    \item 121k; 0.668;	http://example.org/expresses(a,b) <= http://example.org/upregulates(a,b)
+    \item 587k; 0.473;	http://example.org/expresses(a,b) <= http://example.org/expresses(a,f), http://example.org/interacts(b,f)
+\end{itemize}
 % \begin{credits}
 % \subsubsection{\ackname}
 % This work is supported by the Hybrid Intelligence programme (\url{https://www.hybrid-intelligence-centre.nl/}), funded by a 10-year Zwaartekracht grant from the Dutch Ministry of Education, Culture and Science (NWO).
