@@ -18,6 +18,9 @@
 \maketitle
 
 \begin{abstract}
+
+    \textcolor{red}{In case overleaf redirects here, please actually refer to the new version of the paper submission.tex}
+    
     Knowledge Graphs (KGs) are widely used relational data structures that allow both human and machine readability, but are inherently incomplete. Recent studies have explored the benefits of mining and applying inference rules to suggest new relations among existing entities to extend a KG, a task known as Link Prediction (LP). While rules have the advantage of transparency compared to black-box machine learning methods, it has been noted how the commonly used Horn Rules suffer from a lack of expressivity. Additionally, even if often originally available, semantic information of KGs is rarely leveraged when approaching LP, as mining algorithms usually focus only entity-level triples. This is also reflected on standard LP metrics, which compute a ranking of test triples with respect of other predictions, but ignore the semantic correctness of the predictions themselves, possibly providing a skewed representation of the real-world applicability of such methods.
 
     In this work, we study the effect of extending rule expressivity with non-monotonicity: leveraging schema information, we automatically define exception cases based on the predicted relation, potentially stopping the rule from triggering and producing semantically incorrect facts. We show that applying such exceptions at single-rule level (thus ignoring between-rule interactions) allows to substantially reduce the number of inconsistent triples with respect to the considered restrictions, at the cost of a limited increase in inference time. We additionally show that standard rank-based LP metrics are influenced by the different rule expressivity in a limited way, further suggesting the need of alternative metrics that can take into account the semantic quality of predicted triples.
